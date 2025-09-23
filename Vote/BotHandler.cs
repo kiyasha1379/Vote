@@ -3,15 +3,14 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+
 
 public class BotHandler
 {
     private readonly TelegramBotClient _botClient;
     private readonly AdminHandler _adminHandler;
     private readonly GoldenRefereeLoginHandler _goldenLoginHandler;
+    private readonly SilverRefereeLoginHandler _silverLoginHandler;
 
     // نگه داشتن وضعیت کاربرها
     private readonly Dictionary<long, string> _userStates = new();
@@ -25,6 +24,7 @@ public class BotHandler
         _botClient = new TelegramBotClient(token);
         _adminHandler = new AdminHandler(_botClient, _userStates);
         _goldenLoginHandler = new GoldenRefereeLoginHandler(_botClient, _userStates);
+        _silverLoginHandler = new SilverRefereeLoginHandler(_botClient, _userStates);
 
         var cts = new CancellationTokenSource();
         var receiverOptions = new ReceiverOptions { AllowedUpdates = new[] { UpdateType.Message } };
@@ -108,6 +108,20 @@ public class BotHandler
         if (state == "AwaitingGoldenRefereeCode" || state == "GoldenRefereeLoggedIn")
         {
             await _goldenLoginHandler.HandleMessage(chatId, text);
+            return;
+        }
+
+        // ورود داور نقره‌ای
+        if (text == "داور نقره‌ای")
+        {
+            await _silverLoginHandler.StartLogin(chatId);
+            return;
+        }
+
+        // اگر کاربر در حالت ورود داور نقره‌ای است
+        if (state == "AwaitingSilverRefereeCode" || state == "SilverRefereeLoggedIn")
+        {
+            await _silverLoginHandler.HandleMessage(chatId, text);
             return;
         }
 
