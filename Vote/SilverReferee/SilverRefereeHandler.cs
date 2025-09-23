@@ -35,7 +35,6 @@ public class SilverRefereeHandler
     {
         text = text.Trim();
 
-        // اگر منتظر نام برای ایجاد هستیم
         if (_awaitingRefereeName.ContainsKey(chatId) && _awaitingRefereeName[chatId])
         {
             string name = text;
@@ -47,7 +46,6 @@ public class SilverRefereeHandler
             return;
         }
 
-        // اگر منتظر نام برای حذف هستیم
         if (_awaitingDeleteRefereeName.ContainsKey(chatId) && _awaitingDeleteRefereeName[chatId])
         {
             string name = text;

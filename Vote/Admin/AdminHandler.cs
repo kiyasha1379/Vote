@@ -17,7 +17,7 @@ public class AdminHandler
         _userStates = userStates;
         _goldenHandler = new GoldenRefereeHandler(_botClient, _userStates, this);
         _silverHandler = new SilverRefereeHandler(_botClient, _userStates, this);
-        _codeHandler = new CodeHandler(_botClient, _userStates);
+        _codeHandler = new CodeHandler(_botClient, _userStates,this);
         _teamHandler = new TeamHandler(_botClient, _userStates,this);
     }
 

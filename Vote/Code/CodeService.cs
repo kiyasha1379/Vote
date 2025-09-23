@@ -1,14 +1,10 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 public static class CodeService
 {
     private const string DbFile = "app.db";
 
-    // این متد باید اول اجرا بشه تا جدول ایجاد شود
     public static void InitializeDatabase()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
@@ -26,7 +22,7 @@ public static class CodeService
 
     public static List<string> GenerateCodes(int count)
     {
-        InitializeDatabase(); // مطمئن می‌شویم جدول وجود دارد
+        InitializeDatabase();
 
         var codes = new List<string>();
         using var connection = new SqliteConnection($"Data Source={DbFile}");
@@ -38,7 +34,6 @@ public static class CodeService
             codes.Add(code);
             connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
         }
-
         return codes;
     }
 
@@ -52,7 +47,7 @@ public static class CodeService
 
     public static void ClearCodes()
     {
-        InitializeDatabase(); // مطمئن می‌شویم جدول وجود دارد
+        InitializeDatabase();
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
         connection.Execute("DELETE FROM Codes");

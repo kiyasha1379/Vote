@@ -9,7 +9,6 @@ public class GoldenRefereeHandler
 
     private readonly AdminHandler _adminHandler;
 
-    // نگه داشتن وضعیت انتظار نام داور
     private readonly Dictionary<long, bool> _awaitingRefereeName = new();
 
     public GoldenRefereeHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates, AdminHandler adminHandler)
@@ -37,19 +36,17 @@ public class GoldenRefereeHandler
     {
         text = text.Trim();
 
-        // اگر منتظر نام داور هستیم
         if (_awaitingRefereeName.ContainsKey(chatId) && _awaitingRefereeName[chatId])
         {
             string name = text;
-            string code = GoldenRefereeService.CreateReferee(name); // ذخیره در دیتابیس و تولید کد 8 رقمی
+            string code = GoldenRefereeService.CreateReferee(name);
             await _botClient.SendMessage(chatId, $"داور طلایی ساخته شد!\nنام: {name}\nکد: {code}");
 
-            _awaitingRefereeName.Remove(chatId); // وضعیت انتظار نام را حذف می‌کنیم
+            _awaitingRefereeName.Remove(chatId); 
             await _adminHandler.ShowAdminMenu(chatId);
             return;
         }
 
-        // اگر منتظر نام برای حذف داور هستیم
         if (_awaitingDeleteRefereeName.ContainsKey(chatId) && _awaitingDeleteRefereeName[chatId])
         {
             string name = text;
@@ -82,9 +79,7 @@ public class GoldenRefereeHandler
                 {
                     string message = "لیست داورهای طلایی:\n\n";
                     foreach (var r in referees)
-                    {
                         message += $"نام: {r.Name} | کد: {r.Code}\n";
-                    }
                     await _botClient.SendMessage(chatId, message);
                 }
                 break;

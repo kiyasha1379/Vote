@@ -1,5 +1,4 @@
-﻿using System.IO;
-using System.Text;
+﻿using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -8,14 +7,15 @@ public class CodeHandler
 {
     private readonly ITelegramBotClient _botClient;
     private readonly Dictionary<long, string> _userStates;
-    private const string CodesFile = "codes.txt"; // فایل ذخیره کدها
-
-    public CodeHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates)
+    private const string CodesFile = "codes.txt";
+    private readonly AdminHandler _adminHandler;
+    public CodeHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates, AdminHandler adminHandler)
     {
         _botClient = botClient;
         _userStates = userStates;
-    }
+        _adminHandler = adminHandler;
 
+    }
     public async Task ShowMenu(long chatId)
     {
         _userStates[chatId] = "CodeMenu";
@@ -29,25 +29,21 @@ public class CodeHandler
 
         await _botClient.SendMessage(chatId, "منوی ساخت کد:", replyMarkup: buttons);
     }
-
     public async Task HandleMessage(long chatId, string text)
     {
         text = text.Trim();
 
-        // انتظار برای تعداد کدها
         if (_userStates.ContainsKey(chatId) && _userStates[chatId] == "AwaitingCodeCount")
         {
             if (int.TryParse(text, out int count))
             {
                 var codes = GenerateCodes(count);
                 SaveCodesToFile(codes);
-                await SendCodesFile(chatId);   // 📂 فایل به جای متن ارسال میشه
-                await ShowMenu(chatId); // بازگشت به منوی ساخت کد
+                await SendCodesFile(chatId); 
+                await ShowMenu(chatId); 
             }
             else
-            {
                 await _botClient.SendMessage(chatId, "عدد معتبر وارد کنید.");
-            }
             return;
         }
 
@@ -68,18 +64,15 @@ public class CodeHandler
 
             case "نمایش لیست کدها":
                 if (!File.Exists(CodesFile))
-                {
                     await _botClient.SendMessage(chatId, "هیچ کدی ساخته نشده است.");
-                }
                 else
-                {
-                    await SendCodesFile(chatId);   // 📂 فایل موجود ارسال میشه
-                }
+                    await SendCodesFile(chatId);   
                 break;
 
             case "بازگشت":
                 _userStates[chatId] = "AdminMenu";
-                // ShowAdminMenu باید اینجا صدا زده بشه
+                await _botClient.SendMessage(chatId, "بازگشت به منوی ادمین...");
+                await _adminHandler.ShowAdminMenu(chatId);
                 break;
 
             default:
@@ -87,19 +80,13 @@ public class CodeHandler
                 break;
         }
     }
-
-    // تولید لیست کدها
     private List<string> GenerateCodes(int count)
     {
         var codes = new List<string>();
         for (int i = 0; i < count; i++)
-        {
             codes.Add(GenerateRandomCode(8));
-        }
         return codes;
     }
-
-    // تولید کد تصادفی 8 کاراکتری (حروف و عدد)
     private string GenerateRandomCode(int length)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -110,33 +97,29 @@ public class CodeHandler
 
         return new string(codeChars);
     }
-
-    // ذخیره کدها در فایل
     private void SaveCodesToFile(List<string> codes)
     {
-        using var writer = new StreamWriter(CodesFile, true, Encoding.UTF8); // append
+        using var writer = new StreamWriter(CodesFile, true, Encoding.UTF8); 
         foreach (var code in codes)
-            writer.WriteLine($"{code},False"); // فلگ false
+            writer.WriteLine($"{code},False"); 
     }
-
-    // ارسال فایل به تلگرام
-private async Task SendCodesFile(long chatId)
-{
-    if (!File.Exists("codes.txt"))
+    private async Task SendCodesFile(long chatId)
     {
-        await _botClient.SendMessage(chatId, "فایل کدها پیدا نشد!");
-        return;
+        if (!File.Exists("codes.txt"))
+        {
+            await _botClient.SendMessage(chatId, "فایل کدها پیدا نشد!");
+            return;
+        }
+
+        await using var fileStream = new FileStream("codes.txt", FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        var inputFile = new InputFileStream(fileStream, "codes.txt");
+
+        await _botClient.SendDocument(
+            chatId: chatId,
+            document: inputFile,
+            caption: "📂 لیست کدها"
+        );
     }
-
-    await using var fileStream = new FileStream("codes.txt", FileMode.Open, FileAccess.Read, FileShare.Read);
-
-    var inputFile = new InputFileStream(fileStream, "codes.txt");
-
-    await _botClient.SendDocument(
-        chatId: chatId,
-        document: inputFile,
-        caption: "📂 لیست کدها"
-    );
-}
 
 }

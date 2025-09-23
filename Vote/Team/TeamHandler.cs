@@ -14,7 +14,6 @@ public class TeamHandler
         _adminHandler = adminHandler;
     }
 
-    // نمایش منوی تیم/فرد
     public async Task ShowMenu(long chatId)
     {
         _userStates[chatId] = "TeamMenu";
@@ -37,12 +36,10 @@ public class TeamHandler
         );
     }
 
-    // هندل کردن پیام‌ها در این منو
     public async Task HandleMessage(long chatId, string text)
     {
         text = text.Trim();
 
-        // اگر در حالت انتظار ایجاد تیم هستیم
         if (_userStates.ContainsKey(chatId) && _userStates[chatId] == "AwaitingCreateTeam")
         {
             TeamService.AddTeam(text);
@@ -51,7 +48,6 @@ public class TeamHandler
             return;
         }
 
-        // اگر در حالت انتظار حذف تیم هستیم
         if (_userStates.ContainsKey(chatId) && _userStates[chatId] == "AwaitingDeleteTeam")
         {
             TeamService.DeleteTeam(text);

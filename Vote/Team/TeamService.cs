@@ -1,14 +1,12 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+
 
 public static class TeamService
 {
     private const string DbFile = "app.db";
 
-    // ایجاد جدول تیم/فرد
+    // ایجاد  تیم/فرد
     public static void InitializeDatabase()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
@@ -26,7 +24,6 @@ public static class TeamService
         connection.Execute(sql);
     }
 
-    // افزودن تیم/فرد جدید
     public static void AddTeam(string name)
     {
         InitializeDatabase();
@@ -38,7 +35,6 @@ public static class TeamService
         connection.Execute(sql, new { Name = name });
     }
 
-    // دریافت همه تیم‌ها/افراد
     public static List<Team> GetAllTeams()
     {
         InitializeDatabase();
@@ -50,7 +46,6 @@ public static class TeamService
         return connection.Query<Team>(sql).ToList();
     }
 
-    // حذف تیم/فرد
     public static void DeleteTeam(string name)
     {
         InitializeDatabase();
@@ -63,7 +58,6 @@ public static class TeamService
     }
 }
 
-// مدل تیم/فرد
 public class Team
 {
     public int Id { get; set; }
