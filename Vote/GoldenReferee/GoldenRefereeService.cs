@@ -1,12 +1,12 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-using System.Collections.Generic;
+
 
 public static class GoldenRefereeService
 {
     private const string DbFile = "referees.db";
 
-    public static void EnsureDatabase()
+    public static void InitializeDatabase()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
@@ -14,7 +14,7 @@ public static class GoldenRefereeService
         var sql = @"
         CREATE TABLE IF NOT EXISTS GoldenReferees (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            Name TEXT NOT NULL,
+            Name TEXT NOT NULL UNIQUE,
             Code TEXT NOT NULL
         );";
 
@@ -23,9 +23,9 @@ public static class GoldenRefereeService
 
     public static string CreateReferee(string name)
     {
-        EnsureDatabase();
+        InitializeDatabase();
 
-        var code = GenerateRandomCode(8);
+        string code = GenerateRandomCode(8);
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
@@ -36,29 +36,20 @@ public static class GoldenRefereeService
         return code;
     }
 
-    public static List<(string Name, string Code)> GetAllReferees()
+    public static List<GoldenReferee> GetAllReferees()
     {
-        EnsureDatabase();
+        InitializeDatabase();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
 
-        var sql = "SELECT Name, Code FROM GoldenReferees";
-        var result = connection.Query<(string Name, string Code)>(sql);
-        return result.AsList();
-    }
-
-    private static string GenerateRandomCode(int length)
-    {
-        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        return new string(System.Linq.Enumerable.Range(0, length)
-            .Select(_ => chars[random.Next(chars.Length)]).ToArray());
+        var sql = "SELECT Id, Name, Code FROM GoldenReferees";
+        return connection.Query<GoldenReferee>(sql).ToList();
     }
 
     public static void DeleteReferee(string name)
     {
-        EnsureDatabase();
+        InitializeDatabase();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
@@ -67,4 +58,29 @@ public static class GoldenRefereeService
         connection.Execute(sql, new { Name = name });
     }
 
+    public static GoldenReferee? GetRefereeByCode(string code)
+    {
+        InitializeDatabase();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        var sql = "SELECT Id, Name, Code FROM GoldenReferees WHERE Code = @Code";
+        return connection.QuerySingleOrDefault<GoldenReferee>(sql, new { Code = code });
+    }
+
+    private static string GenerateRandomCode(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var random = new Random();
+        return new string(Enumerable.Range(0, length)
+            .Select(_ => chars[random.Next(chars.Length)]).ToArray());
+    }
+}
+
+public class GoldenReferee
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string Code { get; set; } = "";
 }
