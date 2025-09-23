@@ -3,11 +3,15 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class BotHandler
 {
     private readonly TelegramBotClient _botClient;
     private readonly AdminHandler _adminHandler;
+    private readonly GoldenRefereeLoginHandler _goldenLoginHandler;
 
     // نگه داشتن وضعیت کاربرها
     private readonly Dictionary<long, string> _userStates = new();
@@ -20,6 +24,7 @@ public class BotHandler
     {
         _botClient = new TelegramBotClient(token);
         _adminHandler = new AdminHandler(_botClient, _userStates);
+        _goldenLoginHandler = new GoldenRefereeLoginHandler(_botClient, _userStates);
 
         var cts = new CancellationTokenSource();
         var receiverOptions = new ReceiverOptions { AllowedUpdates = new[] { UpdateType.Message } };
@@ -40,6 +45,7 @@ public class BotHandler
 
         _userStates.TryGetValue(chatId, out string state);
 
+        // شروع ربات
         if (text == "/start")
         {
             var buttons = new ReplyKeyboardMarkup(new[]
@@ -54,7 +60,7 @@ public class BotHandler
             return;
         }
 
-        // انتخاب ادمین
+        // ورود ادمین
         if (text == "ادمین")
         {
             await botClient.SendMessage(chatId, "یوزرنیم خود را وارد کنید:", cancellationToken: cancellationToken);
@@ -62,7 +68,6 @@ public class BotHandler
             return;
         }
 
-        // وارد کردن یوزرنیم
         if (state == "awaiting_admin_username")
         {
             _tempData[chatId] = text;
@@ -71,7 +76,6 @@ public class BotHandler
             return;
         }
 
-        // وارد کردن پسورد
         if (state == "awaiting_admin_password")
         {
             var enteredUser = _tempData.ContainsKey(chatId) ? _tempData[chatId] : "";
@@ -81,7 +85,6 @@ public class BotHandler
             {
                 _userStates[chatId] = "AdminMenu";
                 _tempData.Remove(chatId);
-
                 await _adminHandler.ShowAdminMenu(chatId);
                 return;
             }
@@ -94,9 +97,23 @@ public class BotHandler
             }
         }
 
+        // ورود داور طلایی
+        if (text == "داور طلایی")
+        {
+            await _goldenLoginHandler.StartLogin(chatId);
+            return;
+        }
+
+        // اگر کاربر در حالت ورود داور طلایی است
+        if (state == "AwaitingGoldenRefereeCode" || state == "GoldenRefereeLoggedIn")
+        {
+            await _goldenLoginHandler.HandleMessage(chatId, text);
+            return;
+        }
+
         // اگر کاربر در منوی ادمین یا زیرمنوهای آن است
         if (state == "AdminMenu" || state == "GoldenRefereeMenu" || state == "SilverRefereeMenu" || state == "CodeMenu" || state == "AwaitingCodeCount"
-             || state == "TeamMenu" || state == "AwaitingCreateTeam" || _userStates[chatId] == "AwaitingDeleteTeam")
+            || state == "TeamMenu" || state == "AwaitingCreateTeam" || state == "AwaitingDeleteTeam")
         {
             await _adminHandler.HandleMessage(chatId, text);
             return;
