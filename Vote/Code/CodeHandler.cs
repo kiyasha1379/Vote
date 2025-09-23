@@ -38,6 +38,7 @@ public class CodeHandler
             if (int.TryParse(text, out int count))
             {
                 var codes = GenerateCodes(count);
+                CodeService.AddCodes(codes);
                 SaveCodesToFile(codes);
                 await SendCodesFile(chatId); 
                 await ShowMenu(chatId); 
@@ -57,7 +58,7 @@ public class CodeHandler
             case "پاکسازی":
                 if (File.Exists(CodesFile))
                     File.Delete(CodesFile);
-
+                CodeService.ClearCodes();
                 await _botClient.SendMessage(chatId, "همه کدها پاک شدند.");
                 await ShowMenu(chatId);
                 break;

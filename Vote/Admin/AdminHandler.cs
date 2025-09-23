@@ -28,9 +28,9 @@ public class AdminHandler
 
         var buttons = new ReplyKeyboardMarkup(new[]
         {
-            new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تعریف داور نقره‌ای") },
+            new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تنظیم داور نقره‌ای") },
             new[] { new KeyboardButton("تعریف ارسال نوتیف"), new KeyboardButton("ارسال سوال و گزینه") },
-            new[] { new KeyboardButton("ساخت کد"), new KeyboardButton("تعریف تیم یا فرد") }
+            new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") }
         })
         { ResizeKeyboard = true };
 
@@ -77,7 +77,7 @@ public class AdminHandler
                 await _goldenHandler.ShowMenu(chatId);
                 break;
 
-            case "تعریف داور نقره‌ای":
+            case "تنظیم داور نقره‌ای":
                 _userStates[chatId] = "SilverRefereeMenu";
                 await _silverHandler.ShowMenu(chatId);
                 break;
@@ -90,11 +90,11 @@ public class AdminHandler
                 await _botClient.SendMessage(chatId, "گزینه 'ارسال سوال و گزینه' انتخاب شد.");
                 break;
 
-            case "ساخت کد":
+            case "تنظیم کد":
                 await _codeHandler.ShowMenu(chatId);
                 break;
 
-            case "تعریف تیم یا فرد":
+            case "تنظیم تیم یا فرد":
                 _userStates[chatId] = "TeamMenu";
                 await _teamHandler.ShowMenu(chatId);
                 await _botClient.SendMessage(chatId, "گزینه 'تعریف تیم یا فرد' انتخاب شد.");

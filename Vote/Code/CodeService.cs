@@ -20,20 +20,33 @@ public static class CodeService
         connection.Execute(sql);
     }
 
-    public static List<string> GenerateCodes(int count)
+    public static void AddCode(string code)
     {
         InitializeDatabase();
 
-        var codes = new List<string>();
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
+    }
+
+    public static List<Code> GenerateCodes(int count, int length = 8)
+    {
+        InitializeDatabase();
+
+        var codes = new List<Code>();
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
 
         for (int i = 0; i < count; i++)
         {
-            var code = GenerateRandomCode(8);
+            var codeStr = GenerateRandomCode(length);
+            var code = new Code { CodeValue = codeStr, IsUsed = false };
             codes.Add(code);
-            connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
+
+            connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = codeStr });
         }
+
         return codes;
     }
 
@@ -42,23 +55,63 @@ public static class CodeService
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         var random = new Random();
         return new string(Enumerable.Repeat(chars, length)
-          .Select(s => s[random.Next(s.Length)]).ToArray());
+            .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+
+    public static List<Code> GetAllCodes()
+    {
+        InitializeDatabase();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        return connection.Query<Code>("SELECT Id, Code AS CodeValue, IsUsed FROM Codes").ToList();
+    }
+
+    public static void DeleteCode(string code)
+    {
+        InitializeDatabase();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        connection.Execute("DELETE FROM Codes WHERE Code = @Code", new { Code = code });
+    }
+    public static void AddCodes(IEnumerable<string> codes)
+    {
+        InitializeDatabase();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        foreach (var code in codes)
+            connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
     }
 
     public static void ClearCodes()
     {
         InitializeDatabase();
+
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
+
         connection.Execute("DELETE FROM Codes");
     }
 
-    public static List<(string Code, bool IsUsed)> GetAllCodes()
+    public static void MarkCodeAsUsed(string code)
     {
         InitializeDatabase();
+
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
-        return connection.Query<(string Code, bool IsUsed)>("SELECT Code, IsUsed FROM Codes").ToList();
-    }
 
+        connection.Execute("UPDATE Codes SET IsUsed = 1 WHERE Code = @Code", new { Code = code });
+    }
+}
+
+public class Code
+{
+    public int Id { get; set; }
+    public string CodeValue { get; set; } = "";
+    public bool IsUsed { get; set; }
 }

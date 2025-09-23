@@ -11,6 +11,7 @@ public class BotHandler
     private readonly AdminHandler _adminHandler;
     private readonly GoldenRefereeLoginHandler _goldenLoginHandler;
     private readonly SilverRefereeLoginHandler _silverLoginHandler;
+    private readonly UserLoginHandler _userLoginHandler;
 
     // نگه داشتن وضعیت کاربرها
     private readonly Dictionary<long, string> _userStates = new();
@@ -25,6 +26,8 @@ public class BotHandler
         _adminHandler = new AdminHandler(_botClient, _userStates);
         _goldenLoginHandler = new GoldenRefereeLoginHandler(_botClient, _userStates);
         _silverLoginHandler = new SilverRefereeLoginHandler(_botClient, _userStates);
+        _userLoginHandler = new UserLoginHandler(_botClient, _userStates); 
+
 
         var cts = new CancellationTokenSource();
         var receiverOptions = new ReceiverOptions { AllowedUpdates = new[] { UpdateType.Message } };
@@ -57,6 +60,19 @@ public class BotHandler
 
             await botClient.SendMessage(chatId, "سلام! یکی از گزینه‌ها رو انتخاب کن:", replyMarkup: buttons, cancellationToken: cancellationToken);
             _userStates[chatId] = "main_menu";
+            return;
+        }
+
+        if (text == "کاربر")
+        {
+            await _userLoginHandler.StartLogin(chatId);
+            return;
+        }
+
+        // اگر کاربر در حالت ورود کاربر است
+        if (state == "AwaitingUserCode" || state == "UserLoggedIn" || state == "AwaitingUserInfo" || state == "AwaitingUserName" || state == "AwaitingUserPhone")
+        {
+            await _userLoginHandler.HandleMessage(chatId, text);
             return;
         }
 
