@@ -14,7 +14,8 @@ public static class CodeService
         CREATE TABLE IF NOT EXISTS Codes (
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
             Code TEXT NOT NULL,
-            IsUsed INTEGER NOT NULL DEFAULT 0
+            IsUsed INTEGER NOT NULL DEFAULT 0,
+            PhoneNumber TEXT NULL
         );";
 
         connection.Execute(sql);
@@ -27,7 +28,7 @@ public static class CodeService
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
 
-        connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
+        connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
     }
 
     public static List<Code> GenerateCodes(int count, int length = 8)
@@ -41,10 +42,10 @@ public static class CodeService
         for (int i = 0; i < count; i++)
         {
             var codeStr = GenerateRandomCode(length);
-            var code = new Code { CodeValue = codeStr, IsUsed = false };
+            var code = new Code { CodeValue = codeStr, IsUsed = false, PhoneNumber = null };
             codes.Add(code);
 
-            connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = codeStr });
+            connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = codeStr });
         }
 
         return codes;
@@ -65,7 +66,7 @@ public static class CodeService
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         connection.Open();
 
-        return connection.Query<Code>("SELECT Id, Code AS CodeValue, IsUsed FROM Codes").ToList();
+        return connection.Query<Code>("SELECT Id, Code AS CodeValue, IsUsed, PhoneNumber FROM Codes").ToList();
     }
 
     public static void DeleteCode(string code)
@@ -77,6 +78,7 @@ public static class CodeService
 
         connection.Execute("DELETE FROM Codes WHERE Code = @Code", new { Code = code });
     }
+
     public static void AddCodes(IEnumerable<string> codes)
     {
         InitializeDatabase();
@@ -85,7 +87,7 @@ public static class CodeService
         connection.Open();
 
         foreach (var code in codes)
-            connection.Execute("INSERT INTO Codes (Code, IsUsed) VALUES (@Code, 0)", new { Code = code });
+            connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
     }
 
     public static void ClearCodes()
@@ -107,6 +109,16 @@ public static class CodeService
 
         connection.Execute("UPDATE Codes SET IsUsed = 1 WHERE Code = @Code", new { Code = code });
     }
+
+    public static void SetPhoneNumber(string code, string phone)
+    {
+        InitializeDatabase();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        connection.Open();
+
+        connection.Execute("UPDATE Codes SET PhoneNumber = @Phone WHERE Code = @Code", new { Phone = phone, Code = code });
+    }
 }
 
 public class Code
@@ -114,4 +126,5 @@ public class Code
     public int Id { get; set; }
     public string CodeValue { get; set; } = "";
     public bool IsUsed { get; set; }
+    public string? PhoneNumber { get; set; } = null;
 }
