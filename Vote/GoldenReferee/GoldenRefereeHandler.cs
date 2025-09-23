@@ -1,17 +1,17 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Collections.Concurrent;
 
 public class GoldenRefereeHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
-    private readonly Dictionary<long, bool> _awaitingDeleteRefereeName = new();
-
+    private readonly ConcurrentDictionary<long, string> _userStates;
     private readonly AdminHandler _adminHandler;
 
-    private readonly Dictionary<long, bool> _awaitingRefereeName = new();
+    private readonly ConcurrentDictionary<long, bool> _awaitingDeleteRefereeName = new();
+    private readonly ConcurrentDictionary<long, bool> _awaitingRefereeName = new();
 
-    public GoldenRefereeHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates, AdminHandler adminHandler)
+    public GoldenRefereeHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates, AdminHandler adminHandler)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -36,23 +36,24 @@ public class GoldenRefereeHandler
     {
         text = text.Trim();
 
-        if (_awaitingRefereeName.ContainsKey(chatId) && _awaitingRefereeName[chatId])
+        if (_awaitingRefereeName.TryGetValue(chatId, out bool awaiting) && awaiting)
         {
             string name = text;
-            string code = GoldenRefereeService.CreateReferee(name);
+            string code = await GoldenRefereeService.CreateRefereeAsync(name);
             await _botClient.SendMessage(chatId, $"داور طلایی ساخته شد!\nنام: {name}\nکد: {code}");
 
-            _awaitingRefereeName.Remove(chatId); 
+            _awaitingRefereeName.TryRemove(chatId, out _);
             await _adminHandler.ShowAdminMenu(chatId);
             return;
         }
 
-        if (_awaitingDeleteRefereeName.ContainsKey(chatId) && _awaitingDeleteRefereeName[chatId])
+        if (_awaitingDeleteRefereeName.TryGetValue(chatId, out bool awaitingDelete) && awaitingDelete)
         {
             string name = text;
-            GoldenRefereeService.DeleteReferee(name);
+            await GoldenRefereeService.DeleteRefereeAsync(name);
             await _botClient.SendMessage(chatId, $"داور طلایی با نام '{name}' حذف شد.");
-            _awaitingDeleteRefereeName.Remove(chatId);
+
+            _awaitingDeleteRefereeName.TryRemove(chatId, out _);
             await _adminHandler.ShowAdminMenu(chatId);
             return;
         }
@@ -70,11 +71,9 @@ public class GoldenRefereeHandler
                 break;
 
             case "لیست داور طلایی":
-                var referees = GoldenRefereeService.GetAllReferees();
+                var referees = await GoldenRefereeService.GetAllRefereesAsync();
                 if (referees.Count == 0)
-                {
                     await _botClient.SendMessage(chatId, "هیچ داور طلایی ثبت نشده است.");
-                }
                 else
                 {
                     string message = "لیست داورهای طلایی:\n\n";

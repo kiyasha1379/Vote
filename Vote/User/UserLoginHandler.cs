@@ -1,14 +1,17 @@
 ﻿using Telegram.Bot;
+using System.Collections.Concurrent;
 
 public class UserLoginHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _tempCodes = new();
+    private readonly ConcurrentDictionary<long, string> _tempNames = new();
 
-    private readonly Dictionary<long, string> _tempCodes = new();
-    private readonly Dictionary<long, string> _tempNames = new();
+    // Semaphore برای هر کد
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _codeSemaphores = new();
 
-    public UserLoginHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates)
+    public UserLoginHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -24,11 +27,9 @@ public class UserLoginHandler
     {
         _userStates.TryGetValue(chatId, out string state);
 
-        // مرحله 1: وارد کردن کد
         if (state == "AwaitingUserCode")
         {
-            var codeEntry = CodeService.GetAllCodes().FirstOrDefault(c => c.CodeValue == text);
-
+            var codeEntry = await CodeService.GetCodeAsync(text);
             if (codeEntry == null)
             {
                 await _botClient.SendMessage(chatId, "❌ کد وارد شده معتبر نیست.");
@@ -37,63 +38,66 @@ public class UserLoginHandler
 
             _tempCodes[chatId] = text;
             _userStates[chatId] = "AwaitingUserName";
-
             await _botClient.SendMessage(chatId, "کد معتبر است! لطفا نام خود را وارد کنید:");
             return;
         }
 
-        // مرحله 2: وارد کردن نام
         if (state == "AwaitingUserName")
         {
             _tempNames[chatId] = text;
             _userStates[chatId] = "AwaitingUserPhone";
-
             await _botClient.SendMessage(chatId, "لطفا شماره تلفن خود را وارد کنید:");
             return;
         }
 
-        // مرحله 3: وارد کردن شماره
         if (state == "AwaitingUserPhone")
         {
             string code = _tempCodes[chatId];
             string name = _tempNames[chatId];
             string phone = text;
 
-            var codeEntry = CodeService.GetAllCodes().FirstOrDefault(c => c.CodeValue == code);
+            var semaphore = _codeSemaphores.GetOrAdd(code, _ => new SemaphoreSlim(1, 1));
 
-            if (codeEntry == null)
+            await semaphore.WaitAsync();
+            try
             {
-                await _botClient.SendMessage(chatId, "❌ خطای داخلی: کد یافت نشد.");
-                return;
-            }
+                var codeEntry = await CodeService.GetCodeAsync(code);
 
-            if (codeEntry.IsUsed)
-            {
-                // اگر کد قبلا استفاده شده، شماره باید یکی باشد
-                if (codeEntry.PhoneNumber != phone)
+                if (codeEntry == null)
                 {
-                    await _botClient.SendMessage(chatId, "⚠️ شماره وارد شده با شماره ثبت شده برای این کد متفاوت است!");
+                    await _botClient.SendMessage(chatId, "❌ خطای داخلی: کد یافت نشد.");
                     return;
                 }
-            }
-            else
-            {
-                // اگر کد استفاده نشده، اکانت بساز و شماره ذخیره شود
-                UserService.CreateUser(name, phone, code);
-                CodeService.MarkCodeAsUsed(code);
-                CodeService.SetPhoneNumber(code, phone);
-            }
 
-            await CompleteLogin(chatId, name, phone);
+                if (codeEntry.IsUsed)
+                {
+                    if (codeEntry.PhoneNumber != phone)
+                    {
+                        await _botClient.SendMessage(chatId, "⚠️ شماره وارد شده با شماره ثبت شده برای این کد متفاوت است!");
+                        return;
+                    }
+                }
+                else
+                {
+                   await UserService.CreateUserAsync(name, phone, code);
+                  await  CodeService.MarkCodeAsUsedAsync(code);
+                  await  CodeService.SetPhoneNumberAsync(code, phone);
+                }
+
+                await CompleteLogin(chatId, name, phone);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
         }
     }
 
     private async Task CompleteLogin(long chatId, string name, string phone)
     {
         _userStates[chatId] = "UserLoggedIn";
-
-        _tempCodes.Remove(chatId);
-        _tempNames.Remove(chatId);
+        _tempCodes.TryRemove(chatId, out _);
+        _tempNames.TryRemove(chatId, out _);
 
         await _botClient.SendMessage(chatId, $"🎉 ورود موفق!\n\n👤 نام: {name}\n📞 شماره: {phone}");
     }

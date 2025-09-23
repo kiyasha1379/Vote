@@ -1,14 +1,13 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Concurrent;
 
 public class SilverRefereeLoginHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _userStates;
 
-    public SilverRefereeLoginHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates)
+    public SilverRefereeLoginHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -27,7 +26,7 @@ public class SilverRefereeLoginHandler
         if (_userStates.TryGetValue(chatId, out var state) && state == "AwaitingSilverRefereeCode")
         {
             var code = text.Trim();
-            var referee = SilverRefereeService.GetRefereeByCode(code);
+            var referee = await SilverRefereeService.GetRefereeByCodeAsync(code); // حتما async و thread-safe باشد
 
             if (referee != null)
             {

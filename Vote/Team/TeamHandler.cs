@@ -1,13 +1,18 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Collections.Concurrent;
+using System.Threading;
 
 public class TeamHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _userStates;
     private readonly AdminHandler _adminHandler;
-    
-    public TeamHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates, AdminHandler adminHandler)
+
+    // Semaphore برای ایجاد/حذف تیم به صورت امن
+    private static readonly SemaphoreSlim _teamLock = new(1, 1);
+
+    public TeamHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates, AdminHandler adminHandler)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -40,20 +45,41 @@ public class TeamHandler
     {
         text = text.Trim();
 
-        if (_userStates.ContainsKey(chatId) && _userStates[chatId] == "AwaitingCreateTeam")
+        if (_userStates.TryGetValue(chatId, out var state))
         {
-            TeamService.AddTeam(text);
-            await _botClient.SendMessage(chatId, $"✅ '{text}' با موفقیت ثبت شد.");
-            await ShowMenu(chatId);
-            return;
-        }
+            if (state == "AwaitingCreateTeam")
+            {
+                await _teamLock.WaitAsync();
+                try
+                {
+                  await  TeamService.AddTeamAsync(text);
+                }
+                finally
+                {
+                    _teamLock.Release();
+                }
 
-        if (_userStates.ContainsKey(chatId) && _userStates[chatId] == "AwaitingDeleteTeam")
-        {
-            TeamService.DeleteTeam(text);
-            await _botClient.SendMessage(chatId, $"🗑️ '{text}' حذف شد.");
-            await ShowMenu(chatId);
-            return;
+                await _botClient.SendMessage(chatId, $"✅ '{text}' با موفقیت ثبت شد.");
+                await ShowMenu(chatId);
+                return;
+            }
+
+            if (state == "AwaitingDeleteTeam")
+            {
+                await _teamLock.WaitAsync();
+                try
+                {
+                   await TeamService.DeleteTeamAsync(text);
+                }
+                finally
+                {
+                    _teamLock.Release();
+                }
+
+                await _botClient.SendMessage(chatId, $"🗑️ '{text}' حذف شد.");
+                await ShowMenu(chatId);
+                return;
+            }
         }
 
         switch (text)
@@ -64,7 +90,7 @@ public class TeamHandler
                 break;
 
             case "📋 نمایش لیست فرد یا تیم":
-                var teams = TeamService.GetAllTeams();
+                var teams =await TeamService.GetAllTeamsAsync();
                 if (teams.Count == 0)
                 {
                     await _botClient.SendMessage(chatId, "هیچ تیم/فردی ثبت نشده است.");
@@ -88,7 +114,8 @@ public class TeamHandler
             case "🔙 بازگشت به منوی اصلی":
                 _userStates[chatId] = "AdminMenu";
                 await _botClient.SendMessage(chatId, "بازگشت به منوی ادمین...");
-                await _adminHandler.ShowAdminMenu(chatId); break;
+                await _adminHandler.ShowAdminMenu(chatId);
+                break;
 
             default:
                 await _botClient.SendMessage(chatId, "⚠️ گزینه نامعتبر است.");

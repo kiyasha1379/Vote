@@ -1,51 +1,78 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 public static class CodeService
 {
     private const string DbFile = "app.db";
+    private static readonly SemaphoreSlim DbSemaphore = new(1, 1); // برای دسترسی async امن
+    private static readonly Random Random = new();
 
-    public static void InitializeDatabase()
+    public static async Task InitializeDatabaseAsync()
     {
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        var sql = @"
-        CREATE TABLE IF NOT EXISTS Codes (
-            Id INTEGER PRIMARY KEY AUTOINCREMENT,
-            Code TEXT NOT NULL,
-            IsUsed INTEGER NOT NULL DEFAULT 0,
-            PhoneNumber TEXT NULL
-        );";
-
-        connection.Execute(sql);
-    }
-
-    public static void AddCode(string code)
-    {
-        InitializeDatabase();
-
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
-    }
-
-    public static List<Code> GenerateCodes(int count, int length = 8)
-    {
-        InitializeDatabase();
-
-        var codes = new List<Code>();
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        for (int i = 0; i < count; i++)
+        await DbSemaphore.WaitAsync();
+        try
         {
-            var codeStr = GenerateRandomCode(length);
-            var code = new Code { CodeValue = codeStr, IsUsed = false, PhoneNumber = null };
-            codes.Add(code);
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
 
-            connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = codeStr });
+            var sql = @"
+            CREATE TABLE IF NOT EXISTS Codes (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Code TEXT NOT NULL UNIQUE,
+                IsUsed INTEGER NOT NULL DEFAULT 0,
+                PhoneNumber TEXT NULL
+            );";
+
+            await connection.ExecuteAsync(sql);
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
+    }
+
+    public static async Task AddCodeAsync(string code)
+    {
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
+    }
+
+    public static async Task<List<Code>> GenerateCodesAsync(int count, int length = 8)
+    {
+        var codes = new List<Code>();
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+
+            for (int i = 0; i < count; i++)
+            {
+                string codeStr = GenerateRandomCode(length);
+                var code = new Code { CodeValue = codeStr, IsUsed = false, PhoneNumber = null };
+                codes.Add(code);
+
+                await connection.ExecuteAsync("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = codeStr });
+            }
+        }
+        finally
+        {
+            DbSemaphore.Release();
         }
 
         return codes;
@@ -54,70 +81,130 @@ public static class CodeService
     private static string GenerateRandomCode(int length)
     {
         const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-        var random = new Random();
-        return new string(Enumerable.Repeat(chars, length)
-            .Select(s => s[random.Next(s.Length)]).ToArray());
+        lock (Random)
+        {
+            return new string(Enumerable.Range(0, length)
+                .Select(_ => chars[Random.Next(chars.Length)]).ToArray());
+        }
     }
 
-    public static List<Code> GetAllCodes()
+    public static async Task<List<Code>> GetAllCodesAsync()
     {
-        InitializeDatabase();
-
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        return connection.Query<Code>("SELECT Id, Code AS CodeValue, IsUsed, PhoneNumber FROM Codes").ToList();
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            var result = await connection.QueryAsync<Code>("SELECT Id, Code AS CodeValue, IsUsed, PhoneNumber FROM Codes");
+            return result.ToList();
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 
-    public static void DeleteCode(string code)
+    public static async Task DeleteCodeAsync(string code)
     {
-        InitializeDatabase();
-
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        connection.Execute("DELETE FROM Codes WHERE Code = @Code", new { Code = code });
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("DELETE FROM Codes WHERE Code = @Code", new { Code = code });
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 
-    public static void AddCodes(IEnumerable<string> codes)
+    public static async Task AddCodesAsync(IEnumerable<string> codes)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
 
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        foreach (var code in codes)
-            connection.Execute("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
+            foreach (var code in codes)
+                await connection.ExecuteAsync("INSERT INTO Codes (Code, IsUsed, PhoneNumber) VALUES (@Code, 0, NULL)", new { Code = code });
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 
-    public static void ClearCodes()
+    public static async Task ClearCodesAsync()
     {
-        InitializeDatabase();
-
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        connection.Execute("DELETE FROM Codes");
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("DELETE FROM Codes");
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 
-    public static void MarkCodeAsUsed(string code)
+    public static async Task MarkCodeAsUsedAsync(string code)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("UPDATE Codes SET IsUsed = 1 WHERE Code = @Code", new { Code = code });
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
+    }
+    public static async Task<Code?> GetCodeAsync(string codeValue)
+    {
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
 
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+            // فقط یک رکورد خاص را بخوان
+            var sql = "SELECT Id, Code AS CodeValue, IsUsed, PhoneNumber FROM Codes WHERE Code = @Code LIMIT 1";
+            var code = await connection.QueryFirstOrDefaultAsync<Code>(sql, new { Code = codeValue });
 
-        connection.Execute("UPDATE Codes SET IsUsed = 1 WHERE Code = @Code", new { Code = code });
+            return code;
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 
-    public static void SetPhoneNumber(string code, string phone)
+    public static async Task SetPhoneNumberAsync(string code, string phone)
     {
-        InitializeDatabase();
-
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
-
-        connection.Execute("UPDATE Codes SET PhoneNumber = @Phone WHERE Code = @Code", new { Phone = phone, Code = code });
+        await InitializeDatabaseAsync();
+        await DbSemaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("UPDATE Codes SET PhoneNumber = @Phone WHERE Code = @Code", new { Phone = phone, Code = code });
+        }
+        finally
+        {
+            DbSemaphore.Release();
+        }
     }
 }
 

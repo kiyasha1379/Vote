@@ -1,16 +1,21 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
+using System.Collections.Concurrent;
+using System.Threading;
 
 public class SilverRefereeHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _userStates;
     private readonly AdminHandler _adminHandler;
 
-    private readonly Dictionary<long, bool> _awaitingRefereeName = new();
-    private readonly Dictionary<long, bool> _awaitingDeleteRefereeName = new();
+    private readonly ConcurrentDictionary<long, bool> _awaitingRefereeName = new();
+    private readonly ConcurrentDictionary<long, bool> _awaitingDeleteRefereeName = new();
 
-    public SilverRefereeHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates, AdminHandler adminHandler)
+    // Semaphore برای جلوگیری از همزمانی در ایجاد/حذف داور
+    private static readonly SemaphoreSlim _refereeLock = new(1, 1);
+
+    public SilverRefereeHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates, AdminHandler adminHandler)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -35,24 +40,40 @@ public class SilverRefereeHandler
     {
         text = text.Trim();
 
-        if (_awaitingRefereeName.ContainsKey(chatId) && _awaitingRefereeName[chatId])
+        if (_awaitingRefereeName.TryGetValue(chatId, out var awaitingCreate) && awaitingCreate)
         {
             string name = text;
-            string code = SilverRefereeService.CreateReferee(name);
-            await _botClient.SendMessage(chatId, $"داور نقره‌ای ساخته شد!\nنام: {name}\nکد: {code}");
+            await _refereeLock.WaitAsync();
+            try
+            {
+                string code =await SilverRefereeService.CreateRefereeAsync(name);
+                await _botClient.SendMessage(chatId, $"داور نقره‌ای ساخته شد!\nنام: {name}\nکد: {code}");
+            }
+            finally
+            {
+                _refereeLock.Release();
+            }
 
-            _awaitingRefereeName.Remove(chatId);
+            _awaitingRefereeName.TryRemove(chatId, out _);
             await _adminHandler.ShowAdminMenu(chatId);
             return;
         }
 
-        if (_awaitingDeleteRefereeName.ContainsKey(chatId) && _awaitingDeleteRefereeName[chatId])
+        if (_awaitingDeleteRefereeName.TryGetValue(chatId, out var awaitingDelete) && awaitingDelete)
         {
             string name = text;
-            SilverRefereeService.DeleteReferee(name);
-            await _botClient.SendMessage(chatId, $"داور نقره‌ای با نام '{name}' حذف شد.");
+            await _refereeLock.WaitAsync();
+            try
+            {
+               await SilverRefereeService.DeleteRefereeAsync(name);
+                await _botClient.SendMessage(chatId, $"داور نقره‌ای با نام '{name}' حذف شد.");
+            }
+            finally
+            {
+                _refereeLock.Release();
+            }
 
-            _awaitingDeleteRefereeName.Remove(chatId);
+            _awaitingDeleteRefereeName.TryRemove(chatId, out _);
             await _adminHandler.ShowAdminMenu(chatId);
             return;
         }
@@ -70,7 +91,7 @@ public class SilverRefereeHandler
                 break;
 
             case "لیست داور نقره‌ای":
-                var referees = SilverRefereeService.GetAllReferees();
+                var referees = await SilverRefereeService.GetAllRefereesAsync();
                 if (referees.Count == 0)
                     await _botClient.SendMessage(chatId, "هیچ داور نقره‌ای ثبت نشده است.");
                 else

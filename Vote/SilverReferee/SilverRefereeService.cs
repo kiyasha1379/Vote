@@ -1,16 +1,18 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-
+using System.Collections.Concurrent;
 
 public static class SilverRefereeService
 {
     private const string DbFile = "referees.db";
 
+    private static readonly ConcurrentDictionary<string, object> _locks = new();
+
     // ایجاد جدول ریفری نقره‌ای
-    public static void InitializeDatabase()
+    public static async Task InitializeDatabaseAsync()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = @"
         CREATE TABLE IF NOT EXISTS SilverReferees (
@@ -19,59 +21,63 @@ public static class SilverRefereeService
             Code TEXT NOT NULL
         );";
 
-        connection.Execute(sql);
+        await connection.ExecuteAsync(sql);
     }
 
-    // اضافه کردن ریفری
-    public static string CreateReferee(string name)
+    // اضافه کردن ریفری به صورت thread-safe
+    public static async Task<string> CreateRefereeAsync(string name)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
         string code = GenerateRandomCode(8);
 
-        using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        var lockObj = _locks.GetOrAdd(name, _ => new object());
+        lock (lockObj)
+        {
+            using var connection = new SqliteConnection($"Data Source={DbFile}");
+            connection.Open();
 
-        var sql = "INSERT INTO SilverReferees (Name, Code) VALUES (@Name, @Code)";
-        connection.Execute(sql, new { Name = name, Code = code });
+            var sql = "INSERT INTO SilverReferees (Name, Code) VALUES (@Name, @Code)";
+            connection.Execute(sql, new { Name = name, Code = code });
+        }
 
-        return code; // ← این خط اضافه شده
+        return code;
     }
 
-
     // گرفتن همه ریفری‌ها
-    public static List<SilverReferee> GetAllReferees()
+    public static async Task<List<SilverReferee>> GetAllRefereesAsync()
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "SELECT Id, Name, Code FROM SilverReferees";
-        return connection.Query<SilverReferee>(sql).ToList();
+        var result = await connection.QueryAsync<SilverReferee>(sql);
+        return result.ToList();
     }
 
     // حذف ریفری
-    public static void DeleteReferee(string name)
+    public static async Task DeleteRefereeAsync(string name)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "DELETE FROM SilverReferees WHERE Name = @Name";
-        connection.Execute(sql, new { Name = name });
+        await connection.ExecuteAsync(sql, new { Name = name });
     }
 
     // گرفتن ریفری بر اساس کد
-    public static SilverReferee? GetRefereeByCode(string code)
+    public static async Task<SilverReferee?> GetRefereeByCodeAsync(string code)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "SELECT Id, Name, Code FROM SilverReferees WHERE Code = @Code";
-        return connection.QuerySingleOrDefault<SilverReferee>(sql, new { Code = code });
+        return await connection.QuerySingleOrDefaultAsync<SilverReferee>(sql, new { Code = code });
     }
 
     // تولید کد تصادفی

@@ -1,15 +1,17 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 public static class GoldenRefereeService
 {
     private const string DbFile = "referees.db";
 
-    public static void InitializeDatabase()
+    public static async Task InitializeDatabaseAsync()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = @"
         CREATE TABLE IF NOT EXISTS GoldenReferees (
@@ -18,55 +20,55 @@ public static class GoldenRefereeService
             Code TEXT NOT NULL
         );";
 
-        connection.Execute(sql);
+        await connection.ExecuteAsync(sql);
     }
 
-    public static string CreateReferee(string name)
+    public static async Task<string> CreateRefereeAsync(string name)
     {
-        InitializeDatabase();
-
+        await InitializeDatabaseAsync();
         string code = GenerateRandomCode(8);
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "INSERT INTO GoldenReferees (Name, Code) VALUES (@Name, @Code)";
-        connection.Execute(sql, new { Name = name, Code = code });
+        await connection.ExecuteAsync(sql, new { Name = name, Code = code });
 
         return code;
     }
 
-    public static List<GoldenReferee> GetAllReferees()
+    public static async Task<List<GoldenReferee>> GetAllRefereesAsync()
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "SELECT Id, Name, Code FROM GoldenReferees";
-        return connection.Query<GoldenReferee>(sql).ToList();
+        var referees = await connection.QueryAsync<GoldenReferee>(sql);
+        return referees.ToList();
     }
 
-    public static void DeleteReferee(string name)
+    public static async Task DeleteRefereeAsync(string name)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "DELETE FROM GoldenReferees WHERE Name = @Name";
-        connection.Execute(sql, new { Name = name });
+        await connection.ExecuteAsync(sql, new { Name = name });
     }
 
-    public static GoldenReferee? GetRefereeByCode(string code)
+    public static async Task<GoldenReferee?> GetRefereeByCodeAsync(string code)
     {
-        InitializeDatabase();
+        await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
-        connection.Open();
+        await connection.OpenAsync();
 
         var sql = "SELECT Id, Name, Code FROM GoldenReferees WHERE Code = @Code";
-        return connection.QuerySingleOrDefault<GoldenReferee>(sql, new { Code = code });
+        return await connection.QuerySingleOrDefaultAsync<GoldenReferee>(sql, new { Code = code });
     }
 
     private static string GenerateRandomCode(int length)

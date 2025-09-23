@@ -1,14 +1,15 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Linq;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 public class GoldenRefereeLoginHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly Dictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _userStates;
 
-    public GoldenRefereeLoginHandler(ITelegramBotClient botClient, Dictionary<long, string> userStates)
+    public GoldenRefereeLoginHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates)
     {
         _botClient = botClient;
         _userStates = userStates;
@@ -28,10 +29,10 @@ public class GoldenRefereeLoginHandler
 
         if (_userStates.TryGetValue(chatId, out string state) && state == "AwaitingGoldenRefereeCode")
         {
-            var referee = GoldenRefereeService.GetAllReferees()
-                            .FirstOrDefault(r => r.Code == text);
+            var referees = await GoldenRefereeService.GetAllRefereesAsync();
+            var referee = referees.FirstOrDefault(r => r.Code == text);
 
-            if (referee != default)
+            if (referee != null)
             {
                 // ورود موفق
                 _userStates[chatId] = "GoldenRefereeLoggedIn";
