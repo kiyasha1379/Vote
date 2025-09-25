@@ -66,6 +66,16 @@ public static class TeamService
         var sql = "UPDATE Teams SET GoldenJudgeVotes = GoldenJudgeVotes + @Value WHERE Id = @Id";
         await connection.ExecuteAsync(sql, new { Id = teamId, Value = value });
     }
+    public static async Task IncreaseSilverJudgeVoteAsync(int teamId, int value)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "UPDATE Teams SET SilverJudgeVotes = SilverJudgeVotes + @Value WHERE Id = @Id";
+        await connection.ExecuteAsync(sql, new { Id = teamId, Value = value });
+    }
 
     public static async Task DeleteTeamAsync(string name)
     {

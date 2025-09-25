@@ -98,7 +98,7 @@ public class BotHandler
         }
 
         // ورود داور نقره‌ای
-        if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn")
+        if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn" or "SelectingSilverTeam")
         {
             await _silverLoginHandler.HandleMessage(chatId, text);
             return;
