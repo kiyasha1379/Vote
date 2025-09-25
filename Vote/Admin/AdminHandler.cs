@@ -7,6 +7,7 @@ public class AdminHandler
     private readonly ITelegramBotClient _botClient;
     private readonly ConcurrentDictionary<long, string> _userStates; // وضعیت کاربرها
     private readonly ConcurrentDictionary<long, string> _tempData = new(); // داده‌های موقت ادمین
+    private const string CodesFile = "codes.txt";
     private readonly GoldenRefereeHandler _goldenHandler;
     private readonly SilverRefereeHandler _silverHandler;
     private readonly TeamHandler _teamHandler;
@@ -32,7 +33,8 @@ public class AdminHandler
             new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تنظیم داور نقره‌ای") },
             new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") },
             new[] { new KeyboardButton("شروع رای‌گیری"), new KeyboardButton("توقف رای‌گیری") },
-            new[] { new KeyboardButton("خروج") }
+            new[] { new KeyboardButton("خروج") },
+            new[] { new KeyboardButton("پاکسازی تمامی داده‌ها") }
         })
         { ResizeKeyboard = true };
 
@@ -85,6 +87,12 @@ public class AdminHandler
 
             case "تنظیم تیم یا فرد":
                 await _teamHandler.ShowMenu(chatId);
+                break;
+            case "پاکسازی تمامی داده‌ها":
+                await DatabaseManager.ResetDatabaseAsync();
+                if (File.Exists(CodesFile))
+                    File.Delete(CodesFile);
+                await ShowAdminMenu(chatId);
                 break;
             case "شروع رای‌گیری":
                 VotingStatus.IsVotingActive = true;

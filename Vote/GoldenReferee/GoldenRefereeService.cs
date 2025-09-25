@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 public static class GoldenRefereeService
 {
-    private const string DbFile = "referees.db";
+    private const string DbFile = "app.db";
 
     public static async Task InitializeDatabaseAsync()
     {

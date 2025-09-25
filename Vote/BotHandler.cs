@@ -12,11 +12,8 @@ public class BotHandler
     private readonly GoldenRefereeLoginHandler _goldenLoginHandler;
     private readonly SilverRefereeLoginHandler _silverLoginHandler;
     private readonly UserLoginHandler _userLoginHandler;
-
-    // نگه داشتن وضعیت کاربرها به صورت thread-safe
     private readonly ConcurrentDictionary<long, string> _userStates = new();
     private readonly ConcurrentDictionary<long, string> _tempData = new();
-
     private const string AdminUser = "admin";
     private const string AdminPass = "1234";
 
@@ -72,7 +69,7 @@ public class BotHandler
                     return;
                 }
                 await _userLoginHandler.StartLogin(chatId);
-                break;
+                return;
             case "داور طلایی":
                 if (!VotingStatus.IsVotingActive)
                 {
@@ -80,7 +77,7 @@ public class BotHandler
                     return;
                 }
                 await _goldenLoginHandler.StartLogin(chatId);
-                break;
+                return;
             case "داور نقره‌ای":
                 if (!VotingStatus.IsVotingActive)
                 {
@@ -88,7 +85,7 @@ public class BotHandler
                     return;
                 }
                 await _silverLoginHandler.StartLogin(chatId);
-                break;
+                return;
             case "ادمین":
                 await botClient.SendMessage(chatId, "یوزرنیم خود را وارد کنید:", cancellationToken: cancellationToken);
                 _userStates[chatId] = "awaiting_admin_username";
@@ -116,7 +113,7 @@ public class BotHandler
                 return;
             }
             await _goldenLoginHandler.HandleMessage(chatId, text);
-            
+
             return;
         }
 
@@ -169,7 +166,6 @@ public class BotHandler
             return;
         }
 
-        // پیش‌فرض
         await botClient.SendMessage(chatId, $"شما نوشتید: {text}", cancellationToken: cancellationToken);
     }
 

@@ -3,7 +3,7 @@ using Dapper;
 
 public static class UserVoteService
 {
-    private const string DbFile = "user_votes.db";
+    private const string DbFile = "app.db";
 
     // ایجاد جدول برای ثبت رأی‌ها
     public static async Task InitializeDatabaseAsync()

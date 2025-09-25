@@ -4,7 +4,7 @@ using System.Collections.Concurrent;
 
 public static class SilverRefereeService
 {
-    private const string DbFile = "referees.db";
+    private const string DbFile = "app.db";
 
     private static readonly ConcurrentDictionary<string, object> _locks = new();
 
