@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Collections.Concurrent;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -91,7 +88,7 @@ public class BotHandler
         }
 
         // ورود داور طلایی
-        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "SelectingTeam")
+        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "SelectingTeam" or "SelectingGoldenTeam:📋 نمایش لیست تیم‌ها")
         {
             await _goldenLoginHandler.HandleMessage(chatId, text);
             return;
