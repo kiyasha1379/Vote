@@ -1,6 +1,5 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-using System.Collections.Concurrent;
 
 public static class TeamService
 {
@@ -86,9 +85,19 @@ public static class TeamService
         var sql = "DELETE FROM Teams WHERE Name = @Name";
         await connection.ExecuteAsync(sql, new { Name = name });
     }
+    public static async Task IncreaseUserVoteAsync(int teamId, int value)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "UPDATE Teams SET UserVotes = UserVotes + @Value WHERE Id = @Id";
+        await connection.ExecuteAsync(sql, new { Id = teamId, Value = value });
+    }
+
 }
 
-// مدل تیم/فرد
 public class Team
 {
     public int Id { get; set; }

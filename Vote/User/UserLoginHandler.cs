@@ -1,4 +1,5 @@
 ﻿using Telegram.Bot;
+using Telegram.Bot.Types.ReplyMarkups;
 using System.Collections.Concurrent;
 
 public class UserLoginHandler
@@ -7,9 +8,9 @@ public class UserLoginHandler
     private readonly ConcurrentDictionary<long, string> _userStates;
     private readonly ConcurrentDictionary<long, string> _tempCodes = new();
     private readonly ConcurrentDictionary<long, string> _tempNames = new();
+    private readonly ConcurrentDictionary<long, string> _tempPhones = new();
 
-    // Semaphore برای هر کد
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _codeSemaphores = new();
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _phoneSemaphores = new();
 
     public UserLoginHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates)
     {
@@ -26,6 +27,7 @@ public class UserLoginHandler
     public async Task HandleMessage(long chatId, string text)
     {
         _userStates.TryGetValue(chatId, out string state);
+        text = text.Trim();
 
         if (state == "AwaitingUserCode")
         {
@@ -56,7 +58,7 @@ public class UserLoginHandler
             string name = _tempNames[chatId];
             string phone = text;
 
-            var semaphore = _codeSemaphores.GetOrAdd(code, _ => new SemaphoreSlim(1, 1));
+            var semaphore = _phoneSemaphores.GetOrAdd(phone, _ => new SemaphoreSlim(1, 1));
 
             await semaphore.WaitAsync();
             try
@@ -69,36 +71,69 @@ public class UserLoginHandler
                     return;
                 }
 
-                if (codeEntry.IsUsed)
+                if (codeEntry.IsUsed && codeEntry.PhoneNumber != phone)
                 {
-                    if (codeEntry.PhoneNumber != phone)
-                    {
-                        await _botClient.SendMessage(chatId, "⚠️ شماره وارد شده با شماره ثبت شده برای این کد متفاوت است!");
-                        return;
-                    }
-                }
-                else
-                {
-                   await UserService.CreateUserAsync(name, phone, code);
-                  await  CodeService.MarkCodeAsUsedAsync(code);
-                  await  CodeService.SetPhoneNumberAsync(code, phone);
+                    await _botClient.SendMessage(chatId, "⚠️ شماره وارد شده با شماره ثبت شده برای این کد متفاوت است!");
+                    return;
                 }
 
-                await CompleteLogin(chatId, name, phone);
+                if (!codeEntry.IsUsed)
+                {
+                    await UserService.CreateUserAsync(name, phone, code);
+                    await CodeService.MarkCodeAsUsedAsync(code);
+                    await CodeService.SetPhoneNumberAsync(code, phone);
+                }
+
+                _userStates[chatId] = "UserLoggedIn";
+                _tempCodes.TryRemove(chatId, out _);
+                _tempNames.TryRemove(chatId, out _);
+                _tempPhones[chatId] = phone;
+
+                await ShowTeamList(chatId, phone);
             }
             finally
             {
                 semaphore.Release();
             }
         }
+
+        if (state == "UserLoggedIn")
+        {
+            string phone = _tempPhones[chatId];
+
+            var selectedTeam = await TeamService.GetTeamByNameAsync(text);
+            if (selectedTeam != null)
+            {
+                bool hasVoted = await UserVoteService.HasVotedAsync(phone, selectedTeam.Id);
+                if (hasVoted)
+                    await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
+                else
+                {
+                    await TeamService.IncreaseUserVoteAsync(selectedTeam.Id, 2);
+                    await UserVoteService.RecordVoteAsync(phone, selectedTeam.Id);
+                    await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (۲ امتیاز به تیم {selectedTeam.Name} اضافه شد)");
+                }
+
+                await ShowTeamList(chatId, phone);
+            }
+            else
+                await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
+        }
     }
 
-    private async Task CompleteLogin(long chatId, string name, string phone)
+    private async Task ShowTeamList(long chatId, string phone)
     {
-        _userStates[chatId] = "UserLoggedIn";
-        _tempCodes.TryRemove(chatId, out _);
-        _tempNames.TryRemove(chatId, out _);
+        var teams = await TeamService.GetAllTeamsAsync();
+        if (teams.Count == 0)
+        {
+            await _botClient.SendMessage(chatId, "هیچ تیمی ثبت نشده است.");
+            return;
+        }
 
-        await _botClient.SendMessage(chatId, $"🎉 ورود موفق!\n\n👤 نام: {name}\n📞 شماره: {phone}");
+        var buttons = teams.Select(t => new[] { new Telegram.Bot.Types.ReplyMarkups.KeyboardButton(t.Name) }).ToArray();
+        var keyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
+
+        _userStates[chatId] = "UserLoggedIn";
+        await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: keyboard);
     }
 }
