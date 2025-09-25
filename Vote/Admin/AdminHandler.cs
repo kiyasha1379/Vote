@@ -29,7 +29,7 @@ public class AdminHandler
         var buttons = new ReplyKeyboardMarkup(new[]
         {
             new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تنظیم داور نقره‌ای") },
-            new[] { new KeyboardButton("تعریف ارسال نوتیف"), new KeyboardButton("ارسال سوال و گزینه") },
+            //new[] { new KeyboardButton("تعریف ارسال نوتیف"), new KeyboardButton("ارسال سوال و گزینه") },
             new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") }
         })
         { ResizeKeyboard = true };
