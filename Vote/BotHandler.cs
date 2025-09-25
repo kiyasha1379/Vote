@@ -66,14 +66,29 @@ public class BotHandler
         switch (text)
         {
             case "کاربر":
+                if (!VotingStatus.IsVotingActive)
+                {
+                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    return;
+                }
                 await _userLoginHandler.StartLogin(chatId);
-                return;
+                break;
             case "داور طلایی":
+                if (!VotingStatus.IsVotingActive)
+                {
+                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    return;
+                }
                 await _goldenLoginHandler.StartLogin(chatId);
-                return;
+                break;
             case "داور نقره‌ای":
+                if (!VotingStatus.IsVotingActive)
+                {
+                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    return;
+                }
                 await _silverLoginHandler.StartLogin(chatId);
-                return;
+                break;
             case "ادمین":
                 await botClient.SendMessage(chatId, "یوزرنیم خود را وارد کنید:", cancellationToken: cancellationToken);
                 _userStates[chatId] = "awaiting_admin_username";
@@ -83,6 +98,11 @@ public class BotHandler
         // ورود کاربر
         if (state is "AwaitingUserCode" or "UserLoggedIn" or "AwaitingUserInfo" or "AwaitingUserName" or "AwaitingUserPhone")
         {
+            if (!VotingStatus.IsVotingActive)
+            {
+                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                return;
+            }
             await _userLoginHandler.HandleMessage(chatId, text);
             return;
         }
@@ -90,13 +110,24 @@ public class BotHandler
         // ورود داور طلایی
         if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "SelectingTeam" or "SelectingGoldenTeam:📋 نمایش لیست تیم‌ها")
         {
+            if (!VotingStatus.IsVotingActive)
+            {
+                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                return;
+            }
             await _goldenLoginHandler.HandleMessage(chatId, text);
+            
             return;
         }
 
         // ورود داور نقره‌ای
         if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn" or "SelectingSilverTeam" or "SelectingSilverTeam:نمایش لیست تیم یا افراد")
         {
+            if (!VotingStatus.IsVotingActive)
+            {
+                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                return;
+            }
             await _silverLoginHandler.HandleMessage(chatId, text);
             return;
         }

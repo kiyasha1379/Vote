@@ -31,6 +31,7 @@ public class AdminHandler
         {
             new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تنظیم داور نقره‌ای") },
             new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") },
+            new[] { new KeyboardButton("شروع رای‌گیری"), new KeyboardButton("توقف رای‌گیری") },
             new[] { new KeyboardButton("خروج") }
         })
         { ResizeKeyboard = true };
@@ -84,6 +85,17 @@ public class AdminHandler
 
             case "تنظیم تیم یا فرد":
                 await _teamHandler.ShowMenu(chatId);
+                break;
+            case "شروع رای‌گیری":
+                VotingStatus.IsVotingActive = true;
+                await _botClient.SendMessage(chatId, "✅ رای‌گیری شروع شد.");
+                await ShowAdminMenu(chatId);
+                break;
+
+            case "توقف رای‌گیری":
+                VotingStatus.IsVotingActive = false;
+                await _botClient.SendMessage(chatId, "⛔ رای‌گیری متوقف شد.");
+                await ShowAdminMenu(chatId);
                 break;
 
             case "خروج":
