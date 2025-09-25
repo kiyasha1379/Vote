@@ -5,9 +5,7 @@ using System.Collections.Concurrent;
 public static class TeamService
 {
     private const string DbFile = "app.db";
-    private static readonly object _lockObj = new(); // برای عملیات بحرانی
 
-    // ایجاد جدول تیم/فرد
     public static async Task InitializeDatabaseAsync()
     {
         using var connection = new SqliteConnection($"Data Source={DbFile}");
@@ -25,21 +23,16 @@ public static class TeamService
         await connection.ExecuteAsync(sql);
     }
 
-    // اضافه کردن تیم/فرد
     public static async Task AddTeamAsync(string name)
     {
         await InitializeDatabaseAsync();
 
-        lock (_lockObj)
-        {
-            using var connection = new SqliteConnection($"Data Source={DbFile}");
-            connection.Open();
-            var sql = "INSERT INTO Teams (Name, GoldenJudgeVotes, SilverJudgeVotes, UserVotes) VALUES (@Name, 0, 0, 0)";
-            connection.Execute(sql, new { Name = name });
-        }
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+        var sql = "INSERT INTO Teams (Name, GoldenJudgeVotes, SilverJudgeVotes, UserVotes) VALUES (@Name, 0, 0, 0)";
+        await connection.ExecuteAsync(sql, new { Name = name });
     }
 
-    // گرفتن همه تیم‌ها
     public static async Task<List<Team>> GetAllTeamsAsync()
     {
         await InitializeDatabaseAsync();
@@ -52,18 +45,36 @@ public static class TeamService
         return result.ToList();
     }
 
-    // حذف تیم/فرد
+    public static async Task<Team?> GetTeamByNameAsync(string name)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT Id, Name, GoldenJudgeVotes, SilverJudgeVotes, UserVotes FROM Teams WHERE Name = @Name LIMIT 1";
+        return await connection.QueryFirstOrDefaultAsync<Team>(sql, new { Name = name });
+    }
+
+    public static async Task IncreaseGoldenJudgeVoteAsync(int teamId, int value)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "UPDATE Teams SET GoldenJudgeVotes = GoldenJudgeVotes + @Value WHERE Id = @Id";
+        await connection.ExecuteAsync(sql, new { Id = teamId, Value = value });
+    }
+
     public static async Task DeleteTeamAsync(string name)
     {
         await InitializeDatabaseAsync();
 
-        lock (_lockObj)
-        {
-            using var connection = new SqliteConnection($"Data Source={DbFile}");
-            connection.Open();
-            var sql = "DELETE FROM Teams WHERE Name = @Name";
-            connection.Execute(sql, new { Name = name });
-        }
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+        var sql = "DELETE FROM Teams WHERE Name = @Name";
+        await connection.ExecuteAsync(sql, new { Name = name });
     }
 }
 

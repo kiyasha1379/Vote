@@ -91,7 +91,7 @@ public class BotHandler
         }
 
         // ورود داور طلایی
-        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn")
+        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "SelectingTeam")
         {
             await _goldenLoginHandler.HandleMessage(chatId, text);
             return;
