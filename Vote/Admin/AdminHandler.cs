@@ -5,7 +5,8 @@ using System.Collections.Concurrent;
 public class AdminHandler
 {
     private readonly ITelegramBotClient _botClient;
-    private readonly ConcurrentDictionary<long, string> _userStates; // thread-safe
+    private readonly ConcurrentDictionary<long, string> _userStates; // وضعیت کاربرها
+    private readonly ConcurrentDictionary<long, string> _tempData = new(); // داده‌های موقت ادمین
     private readonly GoldenRefereeHandler _goldenHandler;
     private readonly SilverRefereeHandler _silverHandler;
     private readonly TeamHandler _teamHandler;
@@ -29,8 +30,8 @@ public class AdminHandler
         var buttons = new ReplyKeyboardMarkup(new[]
         {
             new[] { new KeyboardButton("تنظیم داور طلایی"), new KeyboardButton("تنظیم داور نقره‌ای") },
-            //new[] { new KeyboardButton("تعریف ارسال نوتیف"), new KeyboardButton("ارسال سوال و گزینه") },
-            new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") }
+            new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") },
+            new[] { new KeyboardButton("خروج") }
         })
         { ResizeKeyboard = true };
 
@@ -43,6 +44,7 @@ public class AdminHandler
         text = text.Trim();
         _userStates.TryGetValue(chatId, out string state);
 
+        // بررسی زیرمنوها
         switch (state)
         {
             case "GoldenRefereeMenu":
@@ -76,25 +78,34 @@ public class AdminHandler
                 await _silverHandler.ShowMenu(chatId);
                 break;
 
-            case "تعریف ارسال نوتیف":
-                await _botClient.SendMessage(chatId, "گزینه 'تعریف ارسال نوتیف' انتخاب شد.");
-                break;
-
-            case "ارسال سوال و گزینه":
-                await _botClient.SendMessage(chatId, "گزینه 'ارسال سوال و گزینه' انتخاب شد.");
-                break;
-
             case "تنظیم کد":
                 await _codeHandler.ShowMenu(chatId);
                 break;
 
             case "تنظیم تیم یا فرد":
                 await _teamHandler.ShowMenu(chatId);
-                await _botClient.SendMessage(chatId, "گزینه 'تعریف تیم یا فرد' انتخاب شد.");
+                break;
+
+            case "خروج":
+                // ریست وضعیت و داده‌های موقت
+                _userStates[chatId] = "main_menu";
+                _tempData.TryRemove(chatId, out _);
+
+                var mainButtons = new ReplyKeyboardMarkup(new[]
+                {
+                    new[] { new KeyboardButton("ادمین"), new KeyboardButton("داور طلایی") },
+                    new[] { new KeyboardButton("داور نقره‌ای"), new KeyboardButton("کاربر") }
+                })
+                { ResizeKeyboard = true };
+
+                await _botClient.SendMessage(chatId,
+                    "شما از پنل ادمین خارج شدید. لطفاً یکی از گزینه‌ها را انتخاب کنید:",
+                    replyMarkup: mainButtons);
                 break;
 
             default:
-                await _botClient.SendMessage(chatId, "گزینه نامعتبر است. لطفا یکی از دکمه‌ها را انتخاب کنید.");
+                await _botClient.SendMessage(chatId,
+                    "گزینه نامعتبر است. لطفاً یکی از دکمه‌ها را انتخاب کنید.");
                 break;
         }
     }
