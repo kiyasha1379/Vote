@@ -23,7 +23,6 @@ public static class SilverRefereeService
 
         await connection.ExecuteAsync(sql);
     }
-
     // اضافه کردن ریفری به صورت thread-safe
     public static async Task<string> CreateRefereeAsync(string name)
     {
