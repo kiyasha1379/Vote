@@ -25,70 +25,90 @@ public class SilverRefereeLoginHandler
     {
         text = text.Trim();
 
-        if (_userStates.TryGetValue(chatId, out var state))
+        if (!_userStates.TryGetValue(chatId, out var state))
+            return;
+
+        switch (state)
         {
-            switch (state)
-            {
-                case "AwaitingSilverRefereeCode":
-                    var referee = await SilverRefereeService.GetRefereeByCodeAsync(text);
+            // مرحله وارد کردن کد داور نقره‌ای
+            case "AwaitingSilverRefereeCode":
+                var referee = await SilverRefereeService.GetRefereeByCodeAsync(text);
 
-                    if (referee != null)
+                if (referee != null)
+                {
+                    _userStates[chatId] = "SilverRefereeLoggedIn";
+
+                    var keyboard = new ReplyKeyboardMarkup(new[]
                     {
-                        _userStates[chatId] = "SilverRefereeLoggedIn";
+                        new[] { new KeyboardButton("نمایش لیست تیم یا افراد") }
+                    })
+                    { ResizeKeyboard = true };
 
-                        var keyboard = new ReplyKeyboardMarkup(new[]
-                        {
-                            new[] { new KeyboardButton("نمایش لیست تیم یا افراد") }
-                        })
-                        { ResizeKeyboard = true };
+                    await _botClient.SendMessage(chatId,
+                        $"خوش آمدید {referee.Name}! شما وارد پنل داور نقره‌ای شدید.",
+                        replyMarkup: keyboard);
+                }
+                else
+                {
+                    await _botClient.SendMessage(chatId, "کد اشتباه است. لطفاً دوباره تلاش کنید:");
+                }
+                break;
 
-                        await _botClient.SendMessage(chatId,
-                            $"خوش آمدید {referee.Name}! شما وارد پنل داور نقره‌ای شدید.",
-                            replyMarkup: keyboard);
+            // منوی اصلی بعد از ورود
+            case "SilverRefereeLoggedIn":
+                if (text == "نمایش لیست تیم یا افراد")
+                {
+                    var teams = await TeamService.GetAllTeamsAsync();
+                    if (teams.Count == 0)
+                    {
+                        await _botClient.SendMessage(chatId, "هیچ تیمی ثبت نشده است.");
+                        return;
+                    }
+
+                    var buttons = teams.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
+                    var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
+
+                    // ذخیره کد داور نقره‌ای در state
+                    _userStates[chatId] = $"SelectingSilverTeam:{text}";
+                    await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
+                }
+                break;
+
+            // مرحله انتخاب تیم برای رأی
+            case string s when s.StartsWith("SelectingSilverTeam:"):
+                var refereeCode = s.Split(':')[1]; // استخراج کد داور نقره‌ای از state
+                var selectedTeam = await TeamService.GetTeamByNameAsync(text);
+
+                if (selectedTeam != null)
+                {
+                    // بررسی رأی قبلی
+                    bool hasVoted = await SilverRefereeVoteService.HasVotedAsync(refereeCode, selectedTeam.Id);
+
+                    if (hasVoted)
+                    {
+                        await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
                     }
                     else
                     {
-                        await _botClient.SendMessage(chatId, "کد اشتباه است. لطفاً دوباره تلاش کنید:");
+                        await TeamService.IncreaseSilverJudgeVoteAsync(selectedTeam.Id, 3);
+                        await SilverRefereeVoteService.RecordVoteAsync(refereeCode, selectedTeam.Id);
+                        await _botClient.SendMessage(chatId, $"رای شما ثبت شد ✅ (۳ امتیاز نقره‌ای به {selectedTeam.Name} اضافه شد)");
                     }
-                    break;
 
-                case "SilverRefereeLoggedIn":
-                    if (text == "نمایش لیست تیم یا افراد")
-                    {
-                        var teams = await TeamService.GetAllTeamsAsync();
-                        if (teams.Count == 0)
-                        {
-                            await _botClient.SendMessage(chatId, "هیچ تیمی ثبت نشده است.");
-                            return;
-                        }
+                    // نمایش مجدد لیست تیم‌ها برای رأی‌دهی به تیم‌های دیگر
+                    var teams = await TeamService.GetAllTeamsAsync();
+                    var buttons = teams.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
+                    var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
 
-                        var buttons = teams
-                            .Select(t => new[] { new KeyboardButton(t.Name) })
-                            .ToArray();
-
-                        var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
-
-                        _userStates[chatId] = "SelectingSilverTeam";
-                        await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
-                    }
-                    break;
-
-                case "SelectingSilverTeam":
-                    var team = await TeamService.GetTeamByNameAsync(text);
-                    if (team != null)
-                    {
-                        await TeamService.IncreaseSilverJudgeVoteAsync(team.Id, 3);
-                        await _botClient.SendMessage(chatId, $"رای شما ثبت شد ✅ (۳ امتیاز نقره‌ای به {team.Name} اضافه شد)");
-
-                        // بازگشت به منوی اصلی داور نقره‌ای
-                        _userStates[chatId] = "SilverRefereeLoggedIn";
-                    }
-                    else
-                    {
-                        await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
-                    }
-                    break;
-            }
+                    // همچنان در حالت SelectingSilverTeam باقی بماند
+                    _userStates[chatId] = $"SelectingSilverTeam:{refereeCode}";
+                    await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
+                }
+                else
+                {
+                    await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
+                }
+                break;
         }
     }
 }
