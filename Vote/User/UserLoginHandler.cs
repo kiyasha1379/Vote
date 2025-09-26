@@ -106,18 +106,47 @@ public class UserLoginHandler
             {
                 bool hasVoted = await UserVoteService.HasVotedAsync(phone, selectedTeam.Id);
                 if (hasVoted)
+                {
                     await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
+                }
                 else
                 {
-                    await TeamService.IncreaseUserVoteAsync(selectedTeam.Id, 1);
-                    await UserVoteService.RecordVoteAsync(phone, selectedTeam.Id);
-                    await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (1 امتیاز به تیم {selectedTeam.Name} اضافه شد)");
+                    // مرحله دوم: دریافت امتیاز از کاربر
+                    _userStates[chatId] = $"EnteringUserScore:{phone}:{selectedTeam.Id}";
+                    await _botClient.SendMessage(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 100):");
                 }
-
-                await ShowTeamList(chatId, phone);
             }
             else
                 await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
+        }
+
+        // مرحله وارد کردن امتیاز کاربر
+        if (state != null && state.StartsWith("EnteringUserScore:"))
+        {
+            var parts = state.Split(':', 3);
+            if (parts.Length < 3)
+            {
+                await _botClient.SendMessage(chatId, "اطلاعات وارد شده معتبر نیست ❌");
+                return;
+            }
+
+            string phone = parts[1];
+            int teamId = int.Parse(parts[2]);
+
+            if (!int.TryParse(text, out int score) || score < 1 || score > 100)
+            {
+                await _botClient.SendMessage(chatId, "❌ لطفاً فقط یک عدد بین 1 تا 100 وارد کنید.");
+                return;
+            }
+
+            // ثبت رأی
+            await TeamService.IncreaseUserVoteAsync(teamId, score);
+            await UserVoteService.RecordVoteAsync(phone, teamId, score);
+
+            await _botClient.SendMessage(chatId, $"✅ رأی شما ثبت شد. ({score} امتیاز به تیم انتخابی اضافه شد)");
+
+            // نمایش دوباره لیست تیم‌ها
+            await ShowTeamList(chatId, phone);
         }
     }
 

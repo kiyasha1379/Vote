@@ -1,5 +1,7 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 public static class UserVoteService
 {
@@ -16,6 +18,7 @@ public static class UserVoteService
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
             PhoneNumber TEXT NOT NULL,
             TeamId INTEGER NOT NULL,
+            Score INTEGER NOT NULL,
             UNIQUE(PhoneNumber, TeamId)
         );";
 
@@ -35,15 +38,39 @@ public static class UserVoteService
         return count > 0;
     }
 
-    // ثبت رأی کاربر
-    public static async Task RecordVoteAsync(string phoneNumber, int teamId)
+    // ثبت رأی کاربر با امتیاز
+    public static async Task RecordVoteAsync(string phoneNumber, int teamId, int score)
     {
         await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         await connection.OpenAsync();
 
-        var sql = "INSERT OR IGNORE INTO UserVotes (PhoneNumber, TeamId) VALUES (@PhoneNumber, @TeamId)";
-        await connection.ExecuteAsync(sql, new { PhoneNumber = phoneNumber, TeamId = teamId });
+        var sql = @"
+            INSERT OR REPLACE INTO UserVotes (PhoneNumber, TeamId, Score)
+            VALUES (@PhoneNumber, @TeamId, @Score)";
+        await connection.ExecuteAsync(sql, new { PhoneNumber = phoneNumber, TeamId = teamId, Score = score });
     }
+
+    // گرفتن همه رأی‌های یک کاربر
+    public static async Task<List<UserVote>> GetVotesByUserAsync(string phoneNumber)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT Id, PhoneNumber, TeamId, Score FROM UserVotes WHERE PhoneNumber = @PhoneNumber";
+        var result = await connection.QueryAsync<UserVote>(sql, new { PhoneNumber = phoneNumber });
+        return result.AsList();
+    }
+}
+
+// مدل رأی کاربر
+public class UserVote
+{
+    public int Id { get; set; }
+    public string PhoneNumber { get; set; } = "";
+    public int TeamId { get; set; }
+    public int Score { get; set; }   // ⭐ امتیاز اضافه شد
 }

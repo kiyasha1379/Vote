@@ -140,7 +140,8 @@ public class AdminHandler
 
         // تعداد کل داور طلایی از دیتابیس
         int totalGoldenReferees = await GoldenRefereeService.GetGoldenRefereeCountAsync();
-        int totalSilverReferees = await SilverRefereeService.GetSilverRefereeCountAsync();
+        var silverreferees = await SilverRefereeService.GetAllRefereesAsync();
+        int totalSilverReferees = silverreferees.Count;
         int totalUsers = await UserService.GetUsersCountAsync();
 
         // مجموع رای‌های هر دسته
@@ -156,7 +157,7 @@ public class AdminHandler
             if (totalGoldenReferees > 0)
             {
                 // هر داور طلایی 8 امتیاز دارد
-                int totalGoldenPoints = totalGoldenReferees * 8;
+                int totalGoldenPoints = totalGoldenReferees * 100;
 
                 // درصد تیم بر اساس امتیاز داورها و 80٪ سهم طلایی
                 goldenPercent = Math.Round(((double)team.GoldenJudgeVotes / totalGoldenPoints) * 80, 2);
@@ -165,7 +166,7 @@ public class AdminHandler
             double silverPercent = 0;
             if (totalSilverVotes > 0)
             {
-                int totalSilverPoints = totalSilverReferees * 1;
+                int totalSilverPoints = totalSilverReferees * 100;
 
                 // درصد تیم بر اساس امتیاز داورها و 80٪ سهم طلایی
                 silverPercent = Math.Round(((double)team.SilverJudgeVotes / totalSilverPoints) * 10, 2);

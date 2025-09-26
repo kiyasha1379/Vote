@@ -93,7 +93,9 @@ public class BotHandler
         }
 
         // ورود کاربر
-        if (state is "AwaitingUserCode" or "UserLoggedIn" or "AwaitingUserInfo" or "AwaitingUserName" or "AwaitingUserPhone")
+        if (state is "AwaitingUserCode" or "UserLoggedIn" or 
+            "AwaitingUserInfo" or "AwaitingUserName"
+            or "AwaitingUserPhone" or "EnteringUserScore:📋 نمایش لیست تیم‌ها:1")
         {
             if (!VotingStatus.IsVotingActive)
             {
@@ -105,7 +107,8 @@ public class BotHandler
         }
 
         // ورود داور طلایی
-        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "SelectingTeam" or "SelectingGoldenTeam:📋 نمایش لیست تیم‌ها")
+        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or
+            "SelectingTeam" or "SelectingGoldenTeam" or "AwaitingGoldenRefereeScore")
         {
             if (!VotingStatus.IsVotingActive)
             {
@@ -118,7 +121,8 @@ public class BotHandler
         }
 
         // ورود داور نقره‌ای
-        if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn" or "SelectingSilverTeam" or "SelectingSilverTeam:نمایش لیست تیم یا افراد")
+        if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn" or
+            "SelectingSilverTeam" or "SelectingSilverTeam" or "EnteringSilverScore" or "AwaitingSilverRefereeScore")
         {
             if (!VotingStatus.IsVotingActive)
             {

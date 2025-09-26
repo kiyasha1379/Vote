@@ -6,11 +6,14 @@ public class GoldenRefereeLoginHandler
 {
     private readonly ITelegramBotClient _botClient;
     private readonly ConcurrentDictionary<long, string> _userStates;
+    private readonly ConcurrentDictionary<long, string> _goldentatus = new();
+    private readonly ConcurrentDictionary<long, int> _seletctedTeam = new();
 
     public GoldenRefereeLoginHandler(ITelegramBotClient botClient, ConcurrentDictionary<long, string> userStates)
     {
         _botClient = botClient;
         _userStates = userStates;
+
     }
 
     // شروع فرآیند ورود داور طلایی
@@ -38,12 +41,14 @@ public class GoldenRefereeLoginHandler
                 {
                     _userStates[chatId] = "GoldenRefereeLoggedIn";
 
+                    _goldentatus.AddOrUpdate(chatId, text, (key, oldValue) => text);
+
+
                     var keyboard = new ReplyKeyboardMarkup(new[]
                     {
                         new[] { new KeyboardButton("📋 نمایش لیست تیم‌ها") }
                     })
                     { ResizeKeyboard = true };
-
                     await _botClient.SendMessage(chatId,
                         $"خوش آمدید {referee.Name}! 👑 شما وارد پنل داور طلایی شدید.",
                         replyMarkup: keyboard);
@@ -56,54 +61,82 @@ public class GoldenRefereeLoginHandler
 
             // منوی اصلی بعد از ورود
             case "GoldenRefereeLoggedIn":
-                if (text == "📋 نمایش لیست تیم‌ها")
+
+                var teams = await TeamService.GetAllTeamsAsync();
+                if (teams.Count == 0)
                 {
-                    var teams = await TeamService.GetAllTeamsAsync();
-                    if (teams.Count == 0)
-                    {
-                        await _botClient.SendMessage(chatId, "هیچ تیمی ثبت نشده است.");
-                        return;
-                    }
-
-                    var buttons = teams.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
-                    var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
-
-                    _userStates[chatId] = $"SelectingGoldenTeam:{text}";
-                    await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
+                    await _botClient.SendMessage(chatId, "هیچ تیمی ثبت نشده است.");
+                    return;
                 }
+
+                var buttons = teams.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
+                var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
+
+                _userStates[chatId] = "SelectingGoldenTeam";
+                await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
                 break;
 
-            // مرحله انتخاب تیم برای رأی
-            case string s when s.StartsWith("SelectingGoldenTeam:"):
-                var refereeCode = s.Split(':')[1];
-                var selectedTeam = await TeamService.GetTeamByNameAsync(text);
-
-                if (selectedTeam != null)
+            case "SelectingGoldenTeam":
                 {
-                    bool hasVoted = await GoldenRefereeVoteService.HasVotedAsync(refereeCode, selectedTeam.Id);
+                    var selectedTeam = await TeamService.GetTeamByNameAsync(text);
 
-                    if (hasVoted)
+                    if (selectedTeam != null)
                     {
-                        await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
+                        bool hasVoted = await GoldenRefereeVoteService.HasVotedAsync(_goldentatus[chatId], selectedTeam.Id);
+
+                        if (hasVoted)
+                        {
+                            await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
+                        }
+                        else
+                        {
+                            // تغییر استیت به وارد کردن امتیاز
+                            _userStates[chatId] = "AwaitingGoldenRefereeScore";
+                            _seletctedTeam.AddOrUpdate(chatId, selectedTeam.Id, (key, oldValue) => selectedTeam.Id);
+                            await _botClient.SendMessage(chatId, $"لطفاً امتیاز خود را به تیم {selectedTeam.Name} وارد کنید (بین 1 تا 100):");
+                        }
                     }
                     else
                     {
-                        await TeamService.IncreaseGoldenJudgeVoteAsync(selectedTeam.Id,8);
-                        await GoldenRefereeVoteService.RecordVoteAsync(refereeCode, selectedTeam.Id);
-                        await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (8 امتیاز به تیم {selectedTeam.Name} اضافه شد)");
+                        await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
                     }
-
-                    // نمایش دوباره لیست تیم‌ها برای رأی‌دهی مجدد
-                    var teams = await TeamService.GetAllTeamsAsync();
-                    var buttons = teams.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
-                    var teamKeyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
-
-                    _userStates[chatId] = $"SelectingGoldenTeam:{refereeCode}";
-                    await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboard);
                 }
-                else
+                break;
+            case "AwaitingGoldenRefereeScore":
                 {
-                    await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
+
+                    var refereeCode = _goldentatus[chatId];
+                    var teamId = _seletctedTeam[chatId];
+
+                    if (int.TryParse(text, out int score) && score >= 1 && score <= 100)
+                    {
+                        bool hasVoted = await GoldenRefereeVoteService.HasVotedAsync(refereeCode, teamId);
+
+                        if (hasVoted)
+                        {
+                            await _botClient.SendMessage(chatId, "شما قبلاً برای این تیم رأی داده‌اید ❌");
+                        }
+                        else
+                        {
+                            await TeamService.IncreaseGoldenJudgeVoteAsync(teamId, score);
+                            await GoldenRefereeVoteService.RecordVoteAsync(refereeCode, teamId, score);
+
+                            await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. ({score} امتیاز به تیم اضافه شد)");
+                        }
+
+                        // نمایش دوباره لیست تیم‌ها
+                        var teamss = await TeamService.GetAllTeamsAsync();
+                        var buttonss = teamss.Select(t => new[] { new KeyboardButton(t.Name) }).ToArray();
+                        var teamKeyboards = new ReplyKeyboardMarkup(buttonss) { ResizeKeyboard = true };
+
+                        _userStates[chatId] = "SelectingGoldenTeam";
+                        _seletctedTeam.TryRemove(chatId, out _);
+                        await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: teamKeyboards);
+                    }
+                    else
+                    {
+                        await _botClient.SendMessage(chatId, "❌ لطفاً یک عدد معتبر بین 1 تا 100 وارد کنید:");
+                    }
                 }
                 break;
         }

@@ -16,6 +16,7 @@ public static class GoldenRefereeVoteService
             Id INTEGER PRIMARY KEY AUTOINCREMENT,
             RefereeCode TEXT NOT NULL,
             TeamId INTEGER NOT NULL,
+            Score INTEGER NOT NULL,
             UNIQUE(RefereeCode, TeamId)
         );";
 
@@ -35,15 +36,49 @@ public static class GoldenRefereeVoteService
         return count > 0;
     }
 
-    // ثبت رأی داور
-    public static async Task RecordVoteAsync(string refereeCode, int teamId)
+    // ثبت رأی داور با امتیاز
+    public static async Task RecordVoteAsync(string refereeCode, int teamId, int score)
     {
         await InitializeDatabaseAsync();
 
         using var connection = new SqliteConnection($"Data Source={DbFile}");
         await connection.OpenAsync();
 
-        var sql = "INSERT OR IGNORE INTO GoldenRefereeVotes (RefereeCode, TeamId) VALUES (@RefereeCode, @TeamId)";
-        await connection.ExecuteAsync(sql, new { RefereeCode = refereeCode, TeamId = teamId });
+        var sql = @"INSERT OR IGNORE INTO GoldenRefereeVotes (RefereeCode, TeamId, Score) 
+                    VALUES (@RefereeCode, @TeamId, @Score)";
+        await connection.ExecuteAsync(sql, new { RefereeCode = refereeCode, TeamId = teamId, Score = score });
     }
+
+    // دریافت مجموع امتیازات یک تیم
+    public static async Task<int> GetTotalScoreForTeamAsync(int teamId)
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT IFNULL(SUM(Score), 0) FROM GoldenRefereeVotes WHERE TeamId = @TeamId";
+        var total = await connection.ExecuteScalarAsync<int>(sql, new { TeamId = teamId });
+        return total;
+    }
+
+    // دریافت تمام رأی‌ها (برای گزارش یا دیباگ)
+    public static async Task<IEnumerable<GoldenRefereeVote>> GetAllVotesAsync()
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT Id, RefereeCode, TeamId, Score FROM GoldenRefereeVotes";
+        return await connection.QueryAsync<GoldenRefereeVote>(sql);
+    }
+}
+
+public class GoldenRefereeVote
+{
+    public int Id { get; set; }
+    public string RefereeCode { get; set; } = "";
+    public int TeamId { get; set; }
+    public int Score { get; set; }
 }
