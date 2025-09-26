@@ -109,9 +109,9 @@ public class UserLoginHandler
                     await _botClient.SendMessage(chatId, $"شما قبلاً به {selectedTeam.Name} رأی داده‌اید ❌");
                 else
                 {
-                    await TeamService.IncreaseUserVoteAsync(selectedTeam.Id, 2);
+                    await TeamService.IncreaseUserVoteAsync(selectedTeam.Id, 1);
                     await UserVoteService.RecordVoteAsync(phone, selectedTeam.Id);
-                    await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (۲ امتیاز به تیم {selectedTeam.Name} اضافه شد)");
+                    await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (1 امتیاز به تیم {selectedTeam.Name} اضافه شد)");
                 }
 
                 await ShowTeamList(chatId, phone);

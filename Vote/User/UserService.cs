@@ -51,6 +51,18 @@ public static class UserService
         var result = await connection.QueryAsync<User>(sql);
         return result.ToList();
     }
+
+    public static async Task<int> GetUsersCountAsync()
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT COUNT(*) FROM Users";
+        var count = await connection.ExecuteScalarAsync<int>(sql);
+        return count;
+    }
 }
 
 // مدل کاربر

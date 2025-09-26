@@ -87,6 +87,17 @@ public static class SilverRefereeService
         return new string(Enumerable.Range(0, length)
             .Select(_ => chars[random.Next(chars.Length)]).ToArray());
     }
+    public static async Task<int> GetSilverRefereeCountAsync()
+    {
+        await InitializeDatabaseAsync();
+
+        using var connection = new SqliteConnection($"Data Source={DbFile}");
+        await connection.OpenAsync();
+
+        var sql = "SELECT COUNT(*) FROM SilverReferees";
+        var count = await connection.ExecuteScalarAsync<int>(sql);
+        return count;
+    }
 }
 
 // مدل ریفری نقره‌ای

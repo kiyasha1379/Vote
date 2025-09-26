@@ -88,9 +88,9 @@ public class GoldenRefereeLoginHandler
                     }
                     else
                     {
-                        await TeamService.IncreaseGoldenJudgeVoteAsync(selectedTeam.Id, 5);
+                        await TeamService.IncreaseGoldenJudgeVoteAsync(selectedTeam.Id,8);
                         await GoldenRefereeVoteService.RecordVoteAsync(refereeCode, selectedTeam.Id);
-                        await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (۵ امتیاز به تیم {selectedTeam.Name} اضافه شد)");
+                        await _botClient.SendMessage(chatId, $"✅ رای شما ثبت شد. (8 امتیاز به تیم {selectedTeam.Name} اضافه شد)");
                     }
 
                     // نمایش دوباره لیست تیم‌ها برای رأی‌دهی مجدد

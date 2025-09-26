@@ -90,9 +90,9 @@ public class SilverRefereeLoginHandler
                     }
                     else
                     {
-                        await TeamService.IncreaseSilverJudgeVoteAsync(selectedTeam.Id, 3);
+                        await TeamService.IncreaseSilverJudgeVoteAsync(selectedTeam.Id, 1);
                         await SilverRefereeVoteService.RecordVoteAsync(refereeCode, selectedTeam.Id);
-                        await _botClient.SendMessage(chatId, $"رای شما ثبت شد ✅ (۳ امتیاز نقره‌ای به {selectedTeam.Name} اضافه شد)");
+                        await _botClient.SendMessage(chatId, $"رای شما ثبت شد ✅ (1 امتیاز نقره‌ای به {selectedTeam.Name} اضافه شد)");
                     }
 
                     // نمایش مجدد لیست تیم‌ها برای رأی‌دهی به تیم‌های دیگر
