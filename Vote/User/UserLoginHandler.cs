@@ -1,7 +1,9 @@
 ﻿using Telegram.Bot;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Collections.Concurrent;
-
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class UserLoginHandler
 {
@@ -23,14 +25,40 @@ public class UserLoginHandler
 
     public async Task StartLogin(long chatId)
     {
+        ResetUser(chatId);
         _userStates[chatId] = "AwaitingUserCode";
-        await _botClient.SendMessage(chatId, "لطفا کد خود را وارد کنید:");
+
+        var keyboard = new ReplyKeyboardMarkup(new[]
+        {
+        new[] { new KeyboardButton("بازگشت 🔙") }
+    })
+        { ResizeKeyboard = true };
+
+        await _botClient.SendMessage(chatId, "لطفا کد خود را وارد کنید:", replyMarkup: keyboard);
     }
 
     public async Task HandleMessage(long chatId, string text)
     {
-        _userStates.TryGetValue(chatId, out string state);
         text = text.Trim();
+
+        // اگر کاربر دکمه بازگشت زد → ریست همه چیز
+        if (text == "بازگشت 🔙")
+        {
+            ResetUser(chatId);
+
+            var buttons = new ReplyKeyboardMarkup(new[]
+            {
+            new[] { new KeyboardButton("ادمین"), new KeyboardButton("داور طلایی") },
+            new[] { new KeyboardButton("داور نقره‌ای"), new KeyboardButton("کاربر") }
+             })
+            { ResizeKeyboard = true };
+
+            await _botClient.SendMessage(chatId, "بازگشت به منوی اصلی 👇", replyMarkup: buttons);
+            _userStates[chatId] = "main_menu";
+            return;
+        }
+
+        _userStates.TryGetValue(chatId, out string state);
 
         // مرحله ۱: وارد کردن کد
         if (state == "AwaitingUserCode")
@@ -44,7 +72,7 @@ public class UserLoginHandler
 
             _tempCodes[chatId] = text;
             _userStates[chatId] = "AwaitingUserName";
-            await _botClient.SendMessage(chatId, "کد معتبر است! لطفا نام خود را وارد کنید:");
+            await SendWithBack(chatId, "کد معتبر است! لطفا نام خود را وارد کنید:");
             return;
         }
 
@@ -53,7 +81,7 @@ public class UserLoginHandler
         {
             _tempNames[chatId] = text;
             _userStates[chatId] = "AwaitingUserPhone";
-            await _botClient.SendMessage(chatId, "لطفا شماره تلفن خود را وارد کنید:");
+            await SendWithBack(chatId, "لطفا شماره تلفن خود را وارد کنید:");
             return;
         }
 
@@ -119,8 +147,8 @@ public class UserLoginHandler
                 else
                 {
                     _userStates[chatId] = "EnteringUserScore";
-                    _tempTeamId.AddOrUpdate(chatId, selectedTeam.Id, (key, oldValue) => selectedTeam.Id);
-                    await _botClient.SendMessage(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 10):");
+                    _tempTeamId[chatId] = selectedTeam.Id;
+                    await SendWithBack(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 10):");
                 }
             }
             else
@@ -132,15 +160,8 @@ public class UserLoginHandler
         }
 
         // مرحله ۵: وارد کردن امتیاز
-        if (state != null && state == "EnteringUserScore")
+        if (state == "EnteringUserScore")
         {
-            //var parts = state.Split(':', 3);
-            //if (parts.Length < 3)
-            //{
-            //    await _botClient.SendMessage(chatId, "اطلاعات وارد شده معتبر نیست ❌");
-            //    return;
-            //}
-
             string phone = _tempPhones[chatId];
             int teamId = _tempTeamId[chatId];
 
@@ -170,12 +191,36 @@ public class UserLoginHandler
 
         var buttons = teams
             .Select(t => new[] { new KeyboardButton(t.Name) })
-            .ToArray();
+            .ToList();
+
+        // دکمه بازگشت اضافه می‌کنیم
+        buttons.Add(new[] { new KeyboardButton("بازگشت 🔙") });
 
         var keyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
 
         _userStates[chatId] = "UserLoggedIn";
         await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: keyboard);
+    }
+
+    private async Task SendWithBack(long chatId, string message)
+    {
+        var keyboard = new ReplyKeyboardMarkup(new[]
+        {
+        new[] { new KeyboardButton("بازگشت 🔙") }
+    })
+        { ResizeKeyboard = true };
+
+
+        await _botClient.SendMessage(chatId, message, replyMarkup: keyboard);
+    }
+
+    private void ResetUser(long chatId)
+    {
+        _userStates.TryRemove(chatId, out _);
+        _tempCodes.TryRemove(chatId, out _);
+        _tempNames.TryRemove(chatId, out _);
+        _tempPhones.TryRemove(chatId, out _);
+        _tempTeamId.TryRemove(chatId, out _);
     }
 
 }
