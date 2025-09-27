@@ -2,13 +2,16 @@
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Collections.Concurrent;
 
+
 public class UserLoginHandler
 {
     private readonly ITelegramBotClient _botClient;
     private readonly ConcurrentDictionary<long, string> _userStates;
+
     private readonly ConcurrentDictionary<long, string> _tempCodes = new();
     private readonly ConcurrentDictionary<long, string> _tempNames = new();
     private readonly ConcurrentDictionary<long, string> _tempPhones = new();
+    private readonly ConcurrentDictionary<long, int> _tempTeamId = new();
 
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> _phoneSemaphores = new();
 
@@ -29,6 +32,7 @@ public class UserLoginHandler
         _userStates.TryGetValue(chatId, out string state);
         text = text.Trim();
 
+        // مرحله ۱: وارد کردن کد
         if (state == "AwaitingUserCode")
         {
             var codeEntry = await CodeService.GetCodeAsync(text);
@@ -44,6 +48,7 @@ public class UserLoginHandler
             return;
         }
 
+        // مرحله ۲: وارد کردن نام
         if (state == "AwaitingUserName")
         {
             _tempNames[chatId] = text;
@@ -52,6 +57,7 @@ public class UserLoginHandler
             return;
         }
 
+        // مرحله ۳: وارد کردن شماره تلفن
         if (state == "AwaitingUserPhone")
         {
             string code = _tempCodes[chatId];
@@ -59,12 +65,10 @@ public class UserLoginHandler
             string phone = text;
 
             var semaphore = _phoneSemaphores.GetOrAdd(phone, _ => new SemaphoreSlim(1, 1));
-
             await semaphore.WaitAsync();
             try
             {
                 var codeEntry = await CodeService.GetCodeAsync(code);
-
                 if (codeEntry == null)
                 {
                     await _botClient.SendMessage(chatId, "❌ خطای داخلی: کد یافت نشد.");
@@ -95,8 +99,11 @@ public class UserLoginHandler
             {
                 semaphore.Release();
             }
+
+            return;
         }
 
+        // مرحله ۴: انتخاب تیم
         if (state == "UserLoggedIn")
         {
             string phone = _tempPhones[chatId];
@@ -111,41 +118,43 @@ public class UserLoginHandler
                 }
                 else
                 {
-                    // مرحله دوم: دریافت امتیاز از کاربر
-                    _userStates[chatId] = $"EnteringUserScore:{phone}:{selectedTeam.Id}";
-                    await _botClient.SendMessage(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 100):");
+                    _userStates[chatId] = "EnteringUserScore";
+                    _tempTeamId.AddOrUpdate(chatId, selectedTeam.Id, (key, oldValue) => selectedTeam.Id);
+                    await _botClient.SendMessage(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 10):");
                 }
             }
             else
+            {
                 await _botClient.SendMessage(chatId, "تیم یافت نشد. لطفا دوباره انتخاب کنید.");
+            }
+
+            return;
         }
 
-        // مرحله وارد کردن امتیاز کاربر
-        if (state != null && state.StartsWith("EnteringUserScore:"))
+        // مرحله ۵: وارد کردن امتیاز
+        if (state != null && state == "EnteringUserScore")
         {
-            var parts = state.Split(':', 3);
-            if (parts.Length < 3)
+            //var parts = state.Split(':', 3);
+            //if (parts.Length < 3)
+            //{
+            //    await _botClient.SendMessage(chatId, "اطلاعات وارد شده معتبر نیست ❌");
+            //    return;
+            //}
+
+            string phone = _tempPhones[chatId];
+            int teamId = _tempTeamId[chatId];
+
+            if (!int.TryParse(text, out int score) || score < 1 || score > 10)
             {
-                await _botClient.SendMessage(chatId, "اطلاعات وارد شده معتبر نیست ❌");
+                await _botClient.SendMessage(chatId, "❌ لطفاً فقط یک عدد بین 1 تا 10 وارد کنید.");
                 return;
             }
 
-            string phone = parts[1];
-            int teamId = int.Parse(parts[2]);
-
-            if (!int.TryParse(text, out int score) || score < 1 || score > 100)
-            {
-                await _botClient.SendMessage(chatId, "❌ لطفاً فقط یک عدد بین 1 تا 100 وارد کنید.");
-                return;
-            }
-
-            // ثبت رأی
             await TeamService.IncreaseUserVoteAsync(teamId, score);
             await UserVoteService.RecordVoteAsync(phone, teamId, score);
 
             await _botClient.SendMessage(chatId, $"✅ رأی شما ثبت شد. ({score} امتیاز به تیم انتخابی اضافه شد)");
 
-            // نمایش دوباره لیست تیم‌ها
             await ShowTeamList(chatId, phone);
         }
     }
@@ -159,10 +168,14 @@ public class UserLoginHandler
             return;
         }
 
-        var buttons = teams.Select(t => new[] { new Telegram.Bot.Types.ReplyMarkups.KeyboardButton(t.Name) }).ToArray();
+        var buttons = teams
+            .Select(t => new[] { new KeyboardButton(t.Name) })
+            .ToArray();
+
         var keyboard = new ReplyKeyboardMarkup(buttons) { ResizeKeyboard = true };
 
         _userStates[chatId] = "UserLoggedIn";
         await _botClient.SendMessage(chatId, "لطفا تیم مورد نظر را انتخاب کنید:", replyMarkup: keyboard);
     }
+
 }

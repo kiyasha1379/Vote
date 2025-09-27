@@ -95,7 +95,7 @@ public class BotHandler
         // ورود کاربر
         if (state is "AwaitingUserCode" or "UserLoggedIn" or 
             "AwaitingUserInfo" or "AwaitingUserName"
-            or "AwaitingUserPhone" or "EnteringUserScore:📋 نمایش لیست تیم‌ها:1")
+            or "AwaitingUserPhone" or "EnteringUserScore")
         {
             if (!VotingStatus.IsVotingActive)
             {
