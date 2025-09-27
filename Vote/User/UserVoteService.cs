@@ -1,7 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
 using Dapper;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+
 
 public static class UserVoteService
 {

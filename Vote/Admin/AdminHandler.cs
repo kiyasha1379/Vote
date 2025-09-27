@@ -34,6 +34,7 @@ public class AdminHandler
             new[] { new KeyboardButton("تنظیم کد"), new KeyboardButton("تنظیم تیم یا فرد") },
             new[] { new KeyboardButton("شروع رای‌گیری"), new KeyboardButton("توقف رای‌گیری") },
             new[] { new KeyboardButton("محاسبه و نمایش آرا") },
+            new[] { new KeyboardButton("ارسال نوتیف به همه کاربران") },
             new[] { new KeyboardButton("خروج") },
             new[] { new KeyboardButton("پاکسازی تمامی داده‌ها") }
         })
@@ -70,6 +71,29 @@ public class AdminHandler
                 await _teamHandler.HandleMessage(chatId, text);
                 return;
         }
+        if (state == "awaitingnotificationtext")
+        {
+            string notificationText = text;
+            _userStates[chatId] = "AdminMenu"; // بازگشت به منوی ادمین
+
+            var allChatIds = await ChatIdRepository.GetAllChatIdsAsync(); // گرفتن همه chatIdها
+
+            foreach (var id in allChatIds)
+            {
+                try
+                {
+                    await _botClient.SendMessage(id, $"📢 پیام از طرف ادمین:\n\n{notificationText}");
+                }
+                catch
+                {
+                    // خطاها نادیده گرفته می‌شوند (مثلاً کاربر بلاک کرده)
+                }
+            }
+
+            await ShowAdminMenu(chatId);
+            return;
+        }
+
 
         // منوی اصلی ادمین
         switch (text)
@@ -99,6 +123,11 @@ public class AdminHandler
                 VotingStatus.IsVotingActive = true;
                 await _botClient.SendMessage(chatId, "✅ رای‌گیری شروع شد.");
                 await ShowAdminMenu(chatId);
+                break;
+
+            case "ارسال نوتیف به همه کاربران":
+                _userStates[chatId] = "awaitingnotificationtext";
+                await _botClient.SendMessage(chatId, "لطفاً متن نوتیف را وارد کنید:");
                 break;
 
             case "توقف رای‌گیری":

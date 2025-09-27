@@ -65,27 +65,33 @@ public class BotHandler
             case "کاربر":
                 if (!VotingStatus.IsVotingActive)
                 {
-                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
                 await _userLoginHandler.StartLogin(chatId);
+                await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
+
             case "داور طلایی":
                 if (!VotingStatus.IsVotingActive)
                 {
-                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
                 await _goldenLoginHandler.StartLogin(chatId);
+                await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
+
             case "داور نقره‌ای":
                 if (!VotingStatus.IsVotingActive)
                 {
-                    await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                    await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
                 await _silverLoginHandler.StartLogin(chatId);
+                await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
+
             case "ادمین":
                 await botClient.SendMessage(chatId, "یوزرنیم خود را وارد کنید:", cancellationToken: cancellationToken);
                 _userStates[chatId] = "awaiting_admin_username";
@@ -93,13 +99,13 @@ public class BotHandler
         }
 
         // ورود کاربر
-        if (state is "AwaitingUserCode" or "UserLoggedIn" or 
+        if (state is "AwaitingUserCode" or "UserLoggedIn" or
             "AwaitingUserInfo" or "AwaitingUserName"
             or "AwaitingUserPhone" or "EnteringUserScore")
         {
             if (!VotingStatus.IsVotingActive)
             {
-                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                 return;
             }
             await _userLoginHandler.HandleMessage(chatId, text);
@@ -107,26 +113,25 @@ public class BotHandler
         }
 
         // ورود داور طلایی
-        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or
-            "SelectingTeam" or "SelectingGoldenTeam" or "AwaitingGoldenRefereeScore")
+        if (state is "AwaitingGoldenRefereeCode" or "GoldenRefereeLoggedIn" or "AwaitingGoldenRefereeScore" or
+            "SelectingTeam" or "SelectingGoldenTeam" )
         {
             if (!VotingStatus.IsVotingActive)
             {
-                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                 return;
             }
             await _goldenLoginHandler.HandleMessage(chatId, text);
-
             return;
         }
 
         // ورود داور نقره‌ای
         if (state is "AwaitingSilverRefereeCode" or "SilverRefereeLoggedIn" or
-            "SelectingSilverTeam" or "SelectingSilverTeam" or "EnteringSilverScore" or "AwaitingSilverRefereeScore")
+            "SelectingSilverTeam" or "EnteringSilverScore" or "AwaitingSilverRefereeScore")
         {
             if (!VotingStatus.IsVotingActive)
             {
-                await _botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
+                await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                 return;
             }
             await _silverLoginHandler.HandleMessage(chatId, text);
@@ -164,7 +169,7 @@ public class BotHandler
 
         // منوی ادمین و زیرمنوها
         if (state is "AdminMenu" or "GoldenRefereeMenu" or "SilverRefereeMenu" or "CodeMenu" or "AwaitingCodeCount"
-            or "TeamMenu" or "AwaitingCreateTeam" or "AwaitingDeleteTeam")
+            or "TeamMenu" or "AwaitingCreateTeam" or "AwaitingDeleteTeam" or "awaitingnotificationtext" )
         {
             await _adminHandler.HandleMessage(chatId, text);
             return;
