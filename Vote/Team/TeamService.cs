@@ -3,7 +3,8 @@ using Dapper;
 
 public static class TeamService
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
 
     public static async Task InitializeDatabaseAsync()
     {

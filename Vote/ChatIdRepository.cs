@@ -4,7 +4,8 @@ using System.Collections.Concurrent;
 
 public static class ChatIdRepository
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
     private static readonly ConcurrentDictionary<long, object> _locks = new();
 
     // ایجاد جدول ChatIds

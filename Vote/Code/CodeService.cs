@@ -7,7 +7,8 @@ using System.Threading.Tasks;
 
 public static class CodeService
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
     private static readonly SemaphoreSlim DbSemaphore = new(1, 1); // برای دسترسی async امن
     private static readonly Random Random = new();
 

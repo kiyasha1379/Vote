@@ -4,7 +4,8 @@ using System.Collections.Concurrent;
 
 public static class UserService
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
     private static readonly object _lockObj = new(); // برای جلوگیری از race condition
 
     // ایجاد جدول Users

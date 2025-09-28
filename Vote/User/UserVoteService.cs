@@ -4,7 +4,8 @@ using Dapper;
 
 public static class UserVoteService
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
 
     // ایجاد جدول برای ثبت رأی‌ها
     public static async Task InitializeDatabaseAsync()

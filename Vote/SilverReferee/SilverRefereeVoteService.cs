@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 // سرویس مدیریت رأی‌های داور نقره‌ای
 public static class SilverRefereeVoteService
 {
-    private const string DbFile = "app.db";
+private static readonly string DbFile = Path.Combine("data", "app.db");
+
 
     // ایجاد جدول برای ثبت رأی‌ها
     public static async Task InitializeDatabaseAsync()

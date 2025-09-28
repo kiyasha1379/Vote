@@ -5,8 +5,8 @@ using System.Threading.Tasks;
 
 public static class DatabaseManager
 {
-    private const string DbFile = "app.db";
-
+private static readonly string DbFile = Path.Combine("data", "app.db");
+    
     /// <summary>
     /// حذف کامل دیتابیس و ساخت دوباره از صفر
     /// </summary>
