@@ -195,7 +195,7 @@ public class AdminHandler
             double silverPercent = 0;
             if (totalSilverVotes > 0)
             {
-                int totalSilverPoints = totalSilverReferees * 100;
+                int totalSilverPoints = totalSilverReferees * 10;
 
                 // درصد تیم بر اساس امتیاز داورها و 80٪ سهم طلایی
                 silverPercent = Math.Round(((double)team.SilverJudgeVotes / totalSilverPoints) * 10, 2);
@@ -204,10 +204,10 @@ public class AdminHandler
             double userPercent = 0;
             if (totalUserVotes > 0)
             {
-                int totalUserPoints = totalUsers * 1;
+                int totalUserPoints = totalUsers * 10;
 
                 // درصد تیم بر اساس امتیاز داورها و 80٪ سهم طلایی
-                silverPercent = Math.Round(((double)team.UserVotes / totalUserPoints) * 10, 2);
+                userPercent = Math.Round(((double)team.UserVotes / totalUserPoints) * 10, 2);
             }
 
             double totalVots = goldenPercent + silverPercent + userPercent;
