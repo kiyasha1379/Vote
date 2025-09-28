@@ -68,6 +68,7 @@ public class BotHandler
                     await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
+                Console.WriteLine($"user with id {chatId} goes in کاربر");
                 await _userLoginHandler.StartLogin(chatId);
                 await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
@@ -78,6 +79,8 @@ public class BotHandler
                     await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
+                Console.WriteLine($"user with id {chatId} goes in داور طلایی");
+
                 await _goldenLoginHandler.StartLogin(chatId);
                 await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
@@ -88,11 +91,14 @@ public class BotHandler
                     await botClient.SendMessage(chatId, "⚠️ رای‌گیری متوقف است. لطفاً بعدا تلاش کنید.");
                     return;
                 }
+                Console.WriteLine($"user with id {chatId} goes in داور نقره‌ای");
+
                 await _silverLoginHandler.StartLogin(chatId);
                 await ChatIdRepository.AddChatIdAsync(chatId); // ذخیره chatId
                 return;
 
             case "ادمین":
+
                 await botClient.SendMessage(chatId, "یوزرنیم خود را وارد کنید:", cancellationToken: cancellationToken);
                 _userStates[chatId] = "awaiting_admin_username";
                 return;

@@ -63,6 +63,7 @@ public class UserLoginHandler
         // مرحله ۱: وارد کردن کد
         if (state == "AwaitingUserCode")
         {
+            Console.WriteLine($"AwaitingUserCode with {chatId}");
             var codeEntry = await CodeService.GetCodeAsync(text);
             if (codeEntry == null)
             {
@@ -72,6 +73,8 @@ public class UserLoginHandler
 
             _tempCodes[chatId] = text;
             _userStates[chatId] = "AwaitingUserName";
+            Console.WriteLine($"change state {chatId} to AwaitingUserName");
+
             await SendWithBack(chatId, "کد معتبر است! لطفا نام خود را وارد کنید:");
             return;
         }
@@ -79,8 +82,12 @@ public class UserLoginHandler
         // مرحله ۲: وارد کردن نام
         if (state == "AwaitingUserName")
         {
+            Console.WriteLine($"AwaitingUserName with {chatId}");
+
             _tempNames[chatId] = text;
             _userStates[chatId] = "AwaitingUserPhone";
+            Console.WriteLine($"change state {chatId} to AwaitingUserName");
+
             await SendWithBack(chatId, "لطفا شماره تلفن خود را وارد کنید:");
             return;
         }
@@ -88,6 +95,8 @@ public class UserLoginHandler
         // مرحله ۳: وارد کردن شماره تلفن
         if (state == "AwaitingUserPhone")
         {
+            Console.WriteLine($"AwaitingUserPhone with {chatId}");
+
             string code = _tempCodes[chatId];
             string name = _tempNames[chatId];
             string phone = text;
@@ -120,6 +129,7 @@ public class UserLoginHandler
                 _tempCodes.TryRemove(chatId, out _);
                 _tempNames.TryRemove(chatId, out _);
                 _tempPhones[chatId] = phone;
+                Console.WriteLine($"change state {chatId} to UserLoggedIn");
 
                 await ShowTeamList(chatId, phone);
             }
@@ -134,6 +144,8 @@ public class UserLoginHandler
         // مرحله ۴: انتخاب تیم
         if (state == "UserLoggedIn")
         {
+            Console.WriteLine($"UserLoggedIn with {chatId}");
+
             string phone = _tempPhones[chatId];
 
             var selectedTeam = await TeamService.GetTeamByNameAsync(text);
@@ -147,6 +159,7 @@ public class UserLoginHandler
                 else
                 {
                     _userStates[chatId] = "EnteringUserScore";
+                    Console.WriteLine($"change state {chatId} to EnteringUserScore");
                     _tempTeamId[chatId] = selectedTeam.Id;
                     await SendWithBack(chatId, $"لطفاً امتیاز خود را برای تیم {selectedTeam.Name} وارد کنید (عدد بین 1 تا 10):");
                 }
@@ -162,6 +175,8 @@ public class UserLoginHandler
         // مرحله ۵: وارد کردن امتیاز
         if (state == "EnteringUserScore")
         {
+            Console.WriteLine($"EnteringUserScore with {chatId}");
+
             string phone = _tempPhones[chatId];
             int teamId = _tempTeamId[chatId];
 
@@ -175,6 +190,7 @@ public class UserLoginHandler
             await UserVoteService.RecordVoteAsync(phone, teamId, score);
 
             await _botClient.SendMessage(chatId, $"✅ رأی شما ثبت شد. ({score} امتیاز به تیم انتخابی اضافه شد)");
+            Console.WriteLine($"{chatId} has vote");
 
             await ShowTeamList(chatId, phone);
         }
