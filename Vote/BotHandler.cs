@@ -181,7 +181,9 @@ public class BotHandler
             return;
         }
 
-        await botClient.SendMessage(chatId, $"شما نوشتید: {text}", cancellationToken: cancellationToken);
+        //await botClient.SendMessage(chatId, $"شما نوشتید: {text}", cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "متن ورودی متناسب با وضعیت شما نمی‌باشد. از گزینه‌های موجود انتخاب نمایید.", cancellationToken: cancellationToken);
+
     }
 
     private Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)

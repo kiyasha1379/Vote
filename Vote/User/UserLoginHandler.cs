@@ -97,6 +97,11 @@ public class UserLoginHandler
         {
             Console.WriteLine($"AwaitingUserPhone with {chatId}");
 
+            if (text.Length != 11)
+            {
+                await _botClient.SendMessage(chatId, "❌ شماره تلفن باید 11 رقم باشد.");
+                return;
+            }
             string code = _tempCodes[chatId];
             string name = _tempNames[chatId];
             string phone = text;

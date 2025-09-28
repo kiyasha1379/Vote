@@ -113,10 +113,33 @@ public class AdminHandler
             case "تنظیم تیم یا فرد":
                 await _teamHandler.ShowMenu(chatId);
                 break;
+
             case "پاکسازی تمامی داده‌ها":
+                var confirmButtons = new ReplyKeyboardMarkup(new[]
+                {
+                    new[] { new KeyboardButton("✅ تایید پاکسازی"), new KeyboardButton("❌ انصراف") }
+                })
+                {
+                    ResizeKeyboard = true
+                };
+
+                await _botClient.SendMessage(
+                    chatId,
+                    "آیا مطمئن هستید که می‌خواهید تمامی داده‌ها پاک شوند؟",
+                    replyMarkup: confirmButtons
+                );
+                break;
+            case "✅ تایید پاکسازی":
                 await DatabaseManager.ResetDatabaseAsync();
                 if (File.Exists(CodesFile))
                     File.Delete(CodesFile);
+
+                await _botClient.SendMessage(chatId, "✅ تمامی داده‌ها پاک شدند.");
+                await ShowAdminMenu(chatId);
+                break;
+
+            case "❌ انصراف":
+                await _botClient.SendMessage(chatId, "❌ عملیات لغو شد.");
                 await ShowAdminMenu(chatId);
                 break;
             case "شروع رای‌گیری":
